@@ -1,0 +1,94 @@
+# Troubleshooting
+
+Work down this list before concluding a tool or an app is broken.
+
+## `sprout-devtools` is not recognized
+
+The tool is not installed, or its shim directory is not on this shell's PATH.
+
+```powershell
+dotnet tool install -g Sprout.DevTools --prerelease     # install
+dotnet tool list -g | Select-String sprout              # confirm
+$env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"  # this shell only
+```
+
+A shell opened before the install will not see the shim. Open a new one.
+
+## `You must install .NET to run this application` / a runtime error on launch
+
+The tool is framework-dependent and needs a **.NET 10** runtime. Check with `dotnet --list-runtimes`. If several .NET
+installs exist, point `DOTNET_ROOT` at the one carrying .NET 10.
+
+## `inspect list` returns no targets
+
+**First, give it a moment.** The endpoint is published a little after process start — an immediate call returns
+`targetNotFound` even for a correctly configured app. Retry for a few seconds before concluding anything.
+
+If it stays empty, the app has not opted into the diagnostics endpoint. Both halves are required, and the first
+without the second produces exactly this symptom:
+
+1. `<SproutDiagnosticsEnabled>true</SproutDiagnosticsEnabled>` in the app's `.csproj`, or a `Sprout.Diagnostics`
+   package reference (which sets it).
+2. A call to `RuntimeDiagnostics.StartLocalAsync(...)` at startup. `RuntimeDiagnostics.Start(...)` alone opens **no**
+   endpoint.
+
+Then confirm the app is actually still running — `debug` exits it. Also check the app is running as the **same user**
+(the rendezvous directory `%LocalAppData%\Sprout\DevTools\sessions` is ACL-restricted to the current user), and pass
+`--sessions <dir>` if the app overrode it.
+
+## The snapshot says the window is empty
+
+You captured too early. A cold app reports `status: partial` with an almost-empty node list for roughly the first two
+seconds, while still reporting a correct `dpiScale` and `clientBounds` — which makes it look like a real, empty UI.
+
+**Check `response.status` and re-capture until it is `complete`.** Use the `Get-SproutSnapshot` helper in
+[layout-inspection.md](layout-inspection.md); raise its timeout for an app with heavy startup.
+
+## `targetAmbiguous`
+
+One PID hosts more than one diagnostics session. Pass the `instanceId` GUID from `inspect list` instead of the PID.
+
+## A blank or all-one-colour screenshot
+
+1. `sprout-devtools doctor` — check DPI awareness and isolation.
+2. **Is this an RDP or disconnected session?** `Windows.Graphics.Capture` needs an active interactive desktop; a
+   disconnected session keeps the HWNDs but produces no compositor frame. Move to a local session, Windows Sandbox, or
+   an auto-logon Hyper-V guest.
+3. Raise `--wait-ms` and `--settle-ms` — the app may not have presented its first real frame yet.
+4. Read `debug-window-candidates.txt`, written exactly for this case; it lists every visible top-level window so you
+   can see whether a splash, launcher or dialog was grabbed instead.
+
+## `debug` says `passed` but the screenshot is wrong
+
+That is expected behaviour, not a bug: the only assertion is `windowCaptured` (`>0x0`). Read `debug-uia-tree.txt` to
+find out what was really captured. A .NET crash dialog passes this assertion.
+
+## A `find` fails
+
+- The control may genuinely not be exposed to UI Automation — that *is* the finding. Dump the tree
+  ([accessibility.md](accessibility.md)) and look.
+- The name may differ from the visible text. Search the tree dump for the control type first.
+- Raise `--find-timeout-ms` (provider-ready gate) and `--wait-ms` (main window poll) for a slow app.
+- Use `--find-within-*` when the control is a descendant of a container that also matches.
+
+## A snapshot node's numbers look impossible
+
+- **Do not divide `bounds` by `dpiScale`.** They are already epx. See [layout-inspection.md](layout-inspection.md).
+- A node under a **collapsed ancestor** keeps stale, last non-zero bounds — it is not on screen at all. Walk
+  `treeEdges` up and check for a collapsed ancestor before trusting the numbers.
+- Check `response.status`: a `partial` capture hit a budget, so absence does not prove the control is missing.
+
+## The build step times out
+
+NativeAOT publishes take minutes. Raise `--build-timeout-ms` (default 600000). For the inner loop prefer Debug —
+`debug` already defaults to it.
+
+## `--selftest` fails only under MSIX
+
+Expected: the framework's self-test hard-asserts it is *not* packaged, so a packaged launch reports
+`packaging => bad`. The packaged form is gated on register + AUMID launch + window presented instead, and `run`
+excludes the self-test from parity. This is documented behaviour, not a regression.
+
+## An option value starting with `--` is misparsed
+
+Attach it with `=`: `--app-arg=--some-flag`, `--record-app-arg=--some-flag`.
