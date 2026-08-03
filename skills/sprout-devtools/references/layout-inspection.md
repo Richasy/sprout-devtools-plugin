@@ -29,10 +29,17 @@ second silently produces no target:
 2. **Run-time** — the app must open the local endpoint:
 
    ```csharp
-   _ = RuntimeDiagnostics.StartLocalAsync(application, new RuntimeDiagnosticsLocalOptions { /* … */ });
+   await using RuntimeDiagnosticsLocalSession diagnostics = await RuntimeDiagnostics.StartLocalAsync(
+       application,
+       new RuntimeDiagnosticsLocalOptions
+       {
+           TargetName = "my-sprout-app",
+           TargetVersion = "1.0.0",
+       });
    ```
 
-   `RuntimeDiagnostics.Start(...)` alone starts a session but opens **no endpoint** — `inspect` will not see it.
+   Keep that session alive for the application lifetime. `RuntimeDiagnostics.Start(...)` alone starts a session but
+   opens **no endpoint** — `inspect` will not see it.
 
 If either is missing, `inspect list` returns an empty `targets` array. That is the diagnosis, not an error.
 
@@ -95,6 +102,11 @@ function Get-SproutSnapshot([int]$TargetPid, [int]$TimeoutSec = 30) {
 ```
 
 A real application with heavier startup takes longer; raise the timeout rather than accepting a `partial`.
+
+If every retry stays `partial` with `timeBudget` truncation, waiting longer cannot fix it: one capture may hold the UI
+thread for only 25 ms by default. Set `RuntimeDiagnosticsLocalOptions.CaptureTimeBudget` to a larger duration, or to
+`Timeout.InfiniteTimeSpan` while inspecting your own app, and accept the longer UI-thread stall. `--deadline-ms`
+controls how long the request waits for a safe point; it does not enlarge the capture budget.
 
 ## The snapshot shape
 

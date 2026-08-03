@@ -30,8 +30,9 @@ dotnet tool install -g Sprout.DevTools --prerelease
 sprout-devtools doctor
 ```
 
-Requires a **.NET 10** runtime on PATH. The package is self-contained — nothing else needs installing. Upgrade with
-`dotnet tool update -g Sprout.DevTools --prerelease`. If `sprout-devtools` is not found after installing, the shim
+Requires a **.NET 10** runtime on PATH. The tool package brings its own managed dependencies; packaging and isolation
+verbs still require the host capabilities listed in [command-reference.md](references/command-reference.md). Upgrade
+with `dotnet tool update -g Sprout.DevTools --prerelease`. If `sprout-devtools` is not found after installing, the shim
 directory (`%USERPROFILE%\.dotnet\tools`) is not on PATH for this shell; open a new shell or prepend it.
 
 `doctor` reports the host (OS build, DPI awareness, Developer Mode, isolation) and is the right first move whenever a
@@ -46,9 +47,37 @@ capture looks wrong.
 | "Is it accessible / what does a screen reader see?" | `debug` and read `debug-uia-tree.txt`, or a `drive` script with a `snapshot` step | [accessibility.md](references/accessibility.md) |
 | "Click it and check what happened" | `drive <app> --find-name … --invoke --expect-…` (UIA patterns only) | [interaction.md](references/interaction.md) |
 | "Does it still pass its own checks?" | `selftest <app>` — the deterministic token gate | [command-reference.md](references/command-reference.md) |
+| "My app is MSIX — run it that way" | Nothing extra: `run` / `deploy` / `drive` / `capture` detect it and launch under package identity | [command-reference.md](references/command-reference.md) |
 | Something failed and you don't know why | [troubleshooting.md](references/troubleshooting.md) | |
 
 Full verb list, global options, result schema and exit codes: [command-reference.md](references/command-reference.md).
+
+## Packaged apps run packaged, automatically
+
+If your app ships as MSIX, it is launched **with package identity** by default — so notifications, background tasks,
+file-type and protocol associations, `ApplicationData`, and single-instance activation all behave as they will for your
+users. Nothing to pass: `run`, `deploy`, `drive` and `capture` detect it from the app itself (its own
+`<AssemblyName>.msix` beside the publish output, or a build-produced loose AppX layout). An app that ships no package
+runs as a plain executable, silently — that is the normal case and nothing complains about it.
+
+Check what actually happened in `result.json`:
+
+```
+run.app.form            "packaged" | "unpackaged"
+run.app.formSelection   "auto" (detected) | "explicit" (you named it)
+run.app.identitySource  "projectPackage" | "looseLayout" | "synthetic"
+run.app.aumid           the identity that was activated
+```
+
+Override it when you need to: `--form exe` (or `--packaged:false` for `drive`/`capture`) forces the plain executable,
+`--form msix` forces the packaged form. **A packaged launch never silently degrades** — if registration, certificate
+trust or activation fails, the run errors with the reason instead of quietly running the raw `.exe`.
+
+For a Sprout app, MSIX is opted into with `<SproutPackageFormat>Msix</SproutPackageFormat>` plus the `Sprout.Packaging`
+and `Microsoft.Windows.SDK.BuildTools` package references; `Package.appxmanifest` is an optional customization on top.
+Packaging happens at publish time, so `run <project>` (which publishes) produces and then uses the package in one step.
+Use `deploy` rather than repeated `run` when the loop needs settings or granted capabilities to survive between
+iterations — `run` removes its development registration each time.
 
 ## Three things that will mislead you
 
@@ -86,18 +115,20 @@ tree that reads as a real, empty UI. Poll until `response.status` is `complete` 
 
 ### 3. Never synthesize input on the developer's own desktop
 
-The `drive` steps `typeText` / `keyDown` / `keyUp` / `click` / `pointerMove` / `pointerDown` / `pointerUp` / `drag` are
-implemented with **`SendInput`, which is global**: it injects into whatever window is foreground at that instant, not
-into the app you named. This has already destroyed a user's live terminal sessions, irreversibly, and there is no undo.
+The `drive` steps `typeText` / `keyDown` / `keyUp` / `click` / `pointerMove` / `pointerDown` / `pointerUp` / `drag` /
+`dragToEdge` are implemented with **`SendInput`, which is global**: it injects into whatever window is foreground at
+that instant, not into the app you named. The `gate` command likewise injects real touch into the host desktop. These
+actions have already destroyed a user's live terminal sessions, irreversibly, and there is no undo.
 
 The **UIA pattern** steps — `find`, `setFocus`, `invoke`, `toggle`, `setValue`, `expand`, `select`, and every `expect*`
 — are safe: they act on the element through the accessibility API and synthesize nothing. They are also the
 deterministic assertion anyway. If a real desktop gesture is genuinely the subject, run it in an isolated guest
 (`isolate --drive-script`, `drive-shell`). See [interaction.md](references/interaction.md).
 
-## Reading the result
+## Reading an orchestration result
 
-Every command writes one `result.json` under `--artifacts <dir>` (default `.sprout-devtools/<runId>`) and returns:
+The orchestration commands (all verbs except `inspect`) write one `result.json` under `--artifacts <dir>` (default
+`.sprout-devtools/<runId>`) and return:
 
 | Exit code | Meaning |
 |---|---|
@@ -106,8 +137,11 @@ Every command writes one `result.json` under `--artifacts <dir>` (default `.spro
 | `2` | the harness itself errored (bad arguments, app never launched, environment missing) |
 
 **Read `tests[].assertions[]` for the verdict and `artifacts[]` for the evidence files — not stdout prose.** Add
-`--json` to get the machine-readable form on stdout. Status values are lowercase `passed` / `failed` / `errored`, and
-the overall status is worst-wins.
+`--json` to get the machine-readable form on stdout. Status values are lowercase `passed` / `failed` / `skipped` /
+`errored`, and the overall status is worst-wins.
+
+`inspect` instead emits the `sprout.devtools.cli.result.v1` envelope on stdout. It returns 0 on success; failures use
+2 for invalid input, 3 for discovery/timeout/I/O, 4 for access denial, and 5 for protocol or state errors.
 
 A screenshot is **triage evidence, not a gate**: post-compositor capture depends on the GPU, driver, DWM and even the
 wallpaper behind a transparent window. Use it to *see*; use assertions and snapshot data to *decide*.

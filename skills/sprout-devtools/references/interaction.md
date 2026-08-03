@@ -16,9 +16,10 @@ check with `uia` assertions plus `window.png`, `uia-tree.txt` and `uia-snapshot.
 | Safe — UIA patterns | Dangerous — synthetic `SendInput` |
 |---|---|
 | `--invoke`, `--toggle`, `--set-value`, `--set-range-value` | `--type-text` |
+| `--show-context-menu` | |
 | `--expand`, `--collapse`, `--select` | `--click` |
 | `--scroll-*`, `--set-scroll-*` | `--drag-to-*` |
-| every `--expect-*` | script steps `typeText`, `keyDown`, `keyUp`, `click`, `pointerMove`, `pointerDown`, `pointerUp`, `drag` |
+| every `--expect-*` | script steps `typeText`, `keyDown`, `keyUp`, `click`, `pointerMove`, `pointerDown`, `pointerUp`, `drag`, `dragToEdge` |
 
 The safe column talks to the element **through the accessibility API** and synthesizes nothing. The dangerous column
 calls `SendInput`, which is **global** — it injects into whatever window is foreground at that instant, not into the
@@ -30,8 +31,55 @@ are testing, run it in an isolated guest — `isolate --drive-script`, or `drive
 neither is available, verify headlessly instead, or ask the user to run it and report what they see. An unverifiable
 appearance claim is cheaper than an unrecoverable action.
 
+**Never run `gate` on the developer's own desktop either.** It injects a real touch gesture into the host desktop, so
+it is isolated-guest-only even though it is not a `drive` step.
+
 The UIA pattern verbs are the deterministic assertion anyway, so the safe column is almost always what you actually
 wanted.
+
+## Dragging a row that only moves after a hold
+
+When a real drag *is* the subject — inside a guest — a plain `drag` is not always enough. A row whose own content owns
+the press (a rail button, a whole-row control) is made draggable by a **press-and-hold** instead of a drag threshold,
+and such a row **disarms itself the moment it sees the pointer travel before its hold elapses**. `drag` starts moving
+90 ms after the press, so it can never arm one.
+
+Add the dwell explicitly — `--drag-hold-ms` on the flags, or `"holdMs"` in a script step — with a value above the app's
+hold delay (Sprout's is 500 ms):
+
+```json
+{ "op": "find", "automationId": "sidebar.item.plex" },
+{ "op": "drag", "automationId": "sidebar.item.emby", "holdMs": 700 }
+```
+
+The dwell is spent between the button-down and the first move, which is the only place a hold recognizer counts it; the
+move cadence afterwards is unchanged.
+
+## Reaching a context command
+
+`--show-context-menu` opens the found element's context menu through the accessibility API
+(`IRawElementProviderSimple2::ShowContextMenu`) — no synthetic input. It is the only safe way to reach anything behind a
+right-click, and it matters more than it sounds: **a reorder has no UIA pattern at all**, so a list that can be
+rearranged exposes that ability as ordinary commands, and those commands almost always live in a context menu.
+
+```powershell
+sprout-devtools drive <app> `
+  --find-automation-id "sidebar.item.plex" --show-context-menu --artifacts out
+sprout-devtools drive <app> --script move-up.json --artifacts out
+```
+
+```json
+[
+  { "op": "find", "automationId": "sidebar.item.plex" },
+  { "op": "showContextMenu" },
+  { "op": "find", "name": "Move up", "controlType": "MenuItem" },
+  { "op": "invoke" },
+  { "op": "snapshot" }
+]
+```
+
+An element with no menu of its own defers to its UI Automation parent, per the provider contract; an element with none
+anywhere up its chain reports a failed step rather than silently doing nothing.
 
 ## Finding a control
 

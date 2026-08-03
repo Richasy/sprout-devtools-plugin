@@ -5,12 +5,14 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 ## Safety
 
 - **DON'T** run a synthetic-input step — `--type-text`, `--click`, `--drag-to-*`, or the script ops `typeText`,
-  `keyDown`, `keyUp`, `click`, `pointerMove`, `pointerDown`, `pointerUp`, `drag` — on the developer's own desktop.
+  `keyDown`, `keyUp`, `click`, `pointerMove`, `pointerDown`, `pointerUp`, `drag`, `dragToEdge` — on the developer's own desktop.
   They are `SendInput`, which is **global**: it injects into whatever window is foreground at that instant, not into
   the app you named. It has destroyed a user's live terminal sessions, irreversibly. **DO** use the UIA pattern verbs
   (`--invoke` / `--toggle` / `--set-value` / `--expect-*`), which act through the accessibility API and synthesize
   nothing — and which are the deterministic assertion anyway. For a genuine desktop gesture, use `isolate` or
   `drive-shell`.
+- **DON'T** run `gate` on the developer's own desktop. It injects a real touch gesture into the host desktop and belongs
+  only in an isolated guest, for the same reason as every synthetic `drive` step.
 - **DON'T** claim a UI looks right when you could not verify it. **DO** say so and ask the user to look, or run the
   check in an isolated guest. An unverifiable claim is cheaper than an unrecoverable action.
 
@@ -46,6 +48,9 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 - **DON'T** trust a node's plausible-looking bounds without checking its ancestors: a collapsed **ancestor**
   short-circuits the layout walk, so its descendants keep **stale, last non-zero** bounds while off screen.
 - **DO** check `response.status` before concluding a control is missing — a `partial` capture hit a budget.
+- **DON'T** poll forever when every capture is `partial` with `timeBudget` truncation. The default capture budget is
+  25 ms and can be too small for a large tree; **DO** raise `RuntimeDiagnosticsLocalOptions.CaptureTimeBudget` (or use
+  `Timeout.InfiniteTimeSpan` while inspecting your own app) and accept the longer UI-thread stall.
 - **DO** prefer a snapshot over grepping layout source when the question involves a number. A code scan produces
   candidates and false positives; the snapshot produces the defect.
 

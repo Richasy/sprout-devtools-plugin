@@ -87,7 +87,29 @@ NativeAOT publishes take minutes. Raise `--build-timeout-ms` (default 600000). F
 
 Expected: the framework's self-test hard-asserts it is *not* packaged, so a packaged launch reports
 `packaging => bad`. The packaged form is gated on register + AUMID launch + window presented instead, and `run`
-excludes the self-test from parity. This is documented behaviour, not a regression.
+excludes the self-test from parity. This is documented behaviour, not a regression. Under an automatically detected
+packaged run the self-test is still executed against the **executable**, so it keeps passing.
+
+## The app ran unpackaged when you expected packaged
+
+Read `run.app.form` and `run.app.formSelection` first — the answer is in the result, not in the log. Detection looks
+for the app's own `<AssemblyName>.msix` beside the publish output, or a build-produced loose AppX layout with a real
+`AppxManifest.xml`. A publish directory with neither is genuinely unpackaged.
+
+For a Sprout app the usual cause is that MSIX was never opted into or never built: packaging runs at **publish** time
+and only when `<SproutPackageFormat>Msix</SproutPackageFormat>` is set, alongside the `Sprout.Packaging` and
+`Microsoft.Windows.SDK.BuildTools` package references. A plain `dotnet build` produces no package, so an inner-loop
+build directory is always unpackaged. If the project *does* declare MSIX and the publish still produced none, `run
+<project>` reports that as a harness error rather than running unpackaged.
+
+## The packaged run failed instead of falling back
+
+That is deliberate — a manifest asks for identity guarantees a raw `.exe` cannot honour, so degrading quietly would
+hide the real problem. Read the error and the register/install log in the artifacts directory. The usual causes:
+Developer Mode is off (`0x80073CFF`), the development certificate is not yet trusted (first-time trust needs one
+elevated session; afterwards the same thumbprint installs unelevated), or the same package identity is already
+installed as a non-development package (`0x80073CFB`) and must be removed manually. Pass `--form exe` if you
+deliberately want the unpackaged run.
 
 ## An option value starting with `--` is misparsed
 
