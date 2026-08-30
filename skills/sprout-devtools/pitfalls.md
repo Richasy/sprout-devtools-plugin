@@ -66,6 +66,14 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 - **DO** attach a `--`-prefixed option value with `=` (`--app-arg=--some-flag`), or it parses as another option.
 - **DON'T** truncate `--help` output when checking options; the verb list and option lists are long and slicing them
   causes guess-and-retry loops.
+- **DON'T** call `host stop` as cleanup against the default shared target host — another worktree may own active work.
+  Ordinary stop refuses while busy; only stop a private state root you created, or use `--force` as an intentional
+  shared-work cancellation.
+- **DON'T** infer the live guest resolution from host VM metadata. A basic session can still be 1024x768. **DO** query
+  and, when needed, change it through the in-guest `drive-shell` `display` operation before resizing a large app.
+- **DON'T** call a resize successful merely because the request returned. `resizeClient` must be `ok:true` and its
+  measured physical client dimensions must equal the target; a window constrained by the desktop or
+  `WM_GETMINMAXINFO` is a failed operation.
 
 ## Diagnostics opt-in
 
@@ -74,3 +82,11 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
   `RuntimeDiagnostics.Start(...)` alone opens no endpoint.
 - **DO** check that the app runs as the same user when `inspect list` is empty — the rendezvous directory is
   ACL-restricted to the current user SID.
+
+## Touch injection
+
+- **DON'T** put `POINTER_FLAG_NEW` in an injected `POINTER_TOUCH_INFO`. It is a **delivery** flag the system sets on
+  a pointer message to mark a new contact; `InjectTouchInput` rejects a packet carrying it with
+  `ERROR_INVALID_PARAMETER` (87), so the gesture fails at its first contact and `gate` cannot drive touch at all --
+  on any machine. Measured 3/3 both ways with every other field held constant. **DO** send
+  `INRANGE | INCONTACT | DOWN`. A unit test that asserts the flag *is* present pins the defect instead of catching it.

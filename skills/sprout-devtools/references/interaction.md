@@ -9,6 +9,24 @@ sprout-devtools drive <app> --app-arg=--some-flag `
 `drive` launches the app, finds a control through UI Automation, acts on it, asserts its state, and writes a `drive`
 check with `uia` assertions plus `window.png`, `uia-tree.txt` and `uia-snapshot.json`.
 
+## Capturing a separate popup window
+
+A windowed Sprout Flyout, menu, or tooltip is a separate owned HWND. The normal post-action screenshot remains
+`window.png` and targets the app's main window. If the action opened a popup that extends outside that owner, select it
+explicitly:
+
+```powershell
+sprout-devtools drive <app> `
+  --find-automation-id "catalog.open" --invoke `
+  --capture-target owned-popup --artifacts out
+```
+
+DevTools follows the selected main window's owner chain, prefers a Sprout no-redirection surface, then chooses the
+foreground/largest matching popup. The evidence is `owned-popup.png` plus `owned-popup-capture.json`; unrelated
+top-level windows and popups owned by another app surface are excluded. Keep the default `main` target when the result
+is inside the ordinary window. Unlike optional main-window pixels, an explicitly requested owned popup fails the drive
+check if no matching screenshot can be produced.
+
 ## Safe vs dangerous steps
 
 > **This is the most consequential rule in this skill.**
@@ -101,7 +119,7 @@ For more than one step, use `--script steps.json`:
 [
   { "op": "find", "name": "Card", "controlType": "Group" },
   { "op": "findWithin", "name": "Save", "controlType": "Button" },
-  { "op": "expectEnabled", "value": true },
+  { "op": "waitUntilEnabled", "value": true },
   { "op": "invoke" },
   { "op": "snapshot" }
 ]
@@ -109,7 +127,9 @@ For more than one step, use `--script steps.json`:
 
 A script is also the only way to reach the JSON-only steps, notably `resizeClient` (set an exact client size in
 physical px or epx and emit a `window` assertion with DPI evidence) and `snapshot` (capture a structured Control View
-subtree as evidence).
+subtree as evidence). `snapshot` captures the drive root at that exact step and writes
+`uia-snapshot-step-<one-based-step>.json`; it remains available when `--no-capture` disables the automatic final
+screenshot/tree/snapshot bundle.
 
 ## Leaving the app running
 
@@ -125,11 +145,39 @@ sprout-devtools inspect snapshot <pid> > snapshot.json
 
 Remember to close the process when you are done.
 
+## Adaptive E2E in a managed VM
+
+Use `drive-shell` when each next action depends on the previous response or when you need screenshots at several points:
+
+```powershell
+sprout-devtools drive-shell <publish-dir> --exe <app.exe> `
+    --devtools <self-contained-tool-dir> --pool default --artifacts out
+```
+
+It reads one JSON request per line and writes one JSON response per line. A successful `find` returns a numeric `ref`
+used by later `act`, `read`, `snapshot`, or subtree operations. `capture` writes a numbered PNG under the artifact
+root and reports its path. Useful global operations:
+
+```json
+{ "op": "display" }
+{ "op": "display", "args": { "width": 1600, "height": 900 } }
+{ "op": "resizeClient", "args": { "width": 1180, "height": 780, "unit": "Epx" } }
+{ "op": "capture" }
+{ "op": "query", "args": { "what": "windows" } }
+{ "op": "shutdown" }
+```
+
+A basic Hyper-V desktop may start at 1024x768 even when host VM video metadata names a larger size. Query and change
+the mode through `display` before resizing a large app. The session writes `live-session.json` naming the leased target
+after teardown. The VM lease is released only after exact checkpoint restore and final Off; a teardown failure
+quarantines the member and overrides otherwise successful UI steps.
+
 ## Evidence
 
 Every drive writes `uia-tree.txt` and `uia-snapshot.json` bounded by `--snapshot-depth` (default 8, max 250 nodes).
 That bound applies to the **evidence only** — it never weakens the `--find-*` gate, which searches the full tree.
-`--no-capture` skips the screenshot if you only want the assertions.
+`--no-capture` skips the screenshot if you only want the assertions. It cannot be combined with
+`--capture-target owned-popup`, because that explicit target exists only to request popup pixels.
 
 Read the verdict from `tests[].assertions[]` in `result.json`, not from stdout.
 

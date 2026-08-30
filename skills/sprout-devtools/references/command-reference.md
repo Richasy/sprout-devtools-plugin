@@ -22,8 +22,9 @@ as another option.
 | `debug <app>` | build Debug, launch, screenshot + UIA tree dump, exit. The dump is triage evidence capped by default at depth 8 and 250 nodes. [screenshots.md](screenshots.md) |
 | `capture <app>` | launch and screenshot only. An app that ships its own MSIX is launched under that identity automatically. |
 | `record <app>` | bounded H.264/MP4 of a real window (`--duration-ms`, `--fps`, optional `--drive-script`). |
-| `drive <app>` | find a control, act on it, assert its state. [interaction.md](interaction.md) |
-| `selftest <app>` | run the app's own `--selftest` and assert its token line (`=> PASS`, `leaked=0`, exit 0). Requires the app to opt into that convention. |
+| `drive <app>` | find a control, act on it, assert its state; `--capture-target owned-popup` captures a separate popup opened by the action. [interaction.md](interaction.md) |
+| `selftest <app>` | submit the app's own `--selftest` to the shared target host and assert its token line (`=> PASS`, `leaked=0`, exit 0). `--target auto` prefers managed VM, then Sandbox, then localhost; `--target vm|sandbox|local` is explicit and `direct` bypasses coordination. |
+| `host serve|status|selftest|cancel|stop` | inspect or control the per-user queue. Ordinary `stop` refuses while work is active; `--force` is the explicit destructive form. |
 | `build <project>` | publish a project into a self-contained deployment directory (`--artifacts out` → `out\publish\`). |
 | `run <app\|dir\|project>` | the capstone: `selftest` + capture. `--form auto` is the default — an app that ships MSIX runs packaged under its real identity, anything else runs unpackaged. `--form exe\|msix\|both` names the form instead; `both` adds a parity verdict. |
 | `inspect list \| connect \| snapshot \| export` | discover and read runtime snapshots from an opted-in app. [layout-inspection.md](layout-inspection.md) |
@@ -36,14 +37,17 @@ as another option.
 | `deploy <app>` | make an app **resident** (lay down the publish, or install/register the package) and leave it there. `--form auto` is the default, same detection as `run`. Its launch is a transient verify — the directory stays, not a live window. |
 | `generate assets <image>` | turn one image into the full Windows/MSIX visual-asset set plus a multi-size `app.ico`. |
 | `isolate <app> --devtools <dir>` | run the checks inside a clean Windows Sandbox or Hyper-V guest and lift the verdict. The right place for synthetic input. |
-| `drive-shell <app> --devtools <dir>` | live multi-step host↔guest drive channel (Hyper-V only). |
+| `vm image import` / `vm pool ensure|status|repair` | import verified Windows media and provision/resume owned Hyper-V members with resident target servers and exact checkpoint teardown. |
+| `drive-shell <app> --devtools <dir> [--pool <name>]` | live multi-step host↔guest drive channel (Hyper-V only). `--pool` consumes a managed pool; the legacy environment-configured VM path remains available. |
 | `agent <app> --serve` | the guest-internal resident agent-server; not a host command. |
 | `gate <app>` | gate a real post-compositor touch-scroll gesture. |
 
 The synthetic package paths used by `produce` and packaged `run` / `deploy` need MakeAppx and, when signing, SignTool
 from an installed Windows SDK or the `Microsoft.Windows.SDK.BuildTools` package cache. Loose packaged deployment also
 needs Developer Mode. `isolate` needs the Windows Sandbox optional feature or a configured Hyper-V VM; `drive-shell`
-is Hyper-V-only.
+is Hyper-V-only. Its interactive JSONL operations include `find`, `act`, `read`, `snapshot`, `capture`, `query`,
+`display`, `resizeClient`, stateful key/pointer input, and `shutdown`. `display` queries or changes the guest's active
+desktop mode; `resizeClient` succeeds only after the measured client size exactly matches.
 
 `gate` injects real touch into the host desktop. Run it only inside an isolated guest, never on the developer's desktop.
 
@@ -54,7 +58,8 @@ Every orchestration command (all verbs except `inspect`) writes one `result.json
 
 ```
 run { id, status, startedUtc, durationMs, toolVersion,
-      host { os, build, dpiAwareness, isolation, gpu },
+      host { os, build, dpiAwareness, isolation, isolationTarget,
+             target, targetSelection, targetReason, gpu },
       app  { path, form, formSelection, identitySource, packageFamilyName, aumid, arguments } }
 tests[] { id, title, status, durationMs, steps[],
           assertions[] { kind, status, expected, actual, message },

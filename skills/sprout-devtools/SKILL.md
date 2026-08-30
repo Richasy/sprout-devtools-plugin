@@ -18,6 +18,7 @@ Use it whenever the request is some form of *"is the UI right?"*:
 - "check the sidebar spacing / this element's size / whether something is clipped"
 - "is this reachable by a screen reader" / "dump the accessibility tree"
 - "click that button and tell me what happened"
+- "run this safely while other worktrees are testing" / "drive this app step-by-step in a managed VM"
 
 **Never hand-roll this.** Do not write `PrintWindow` / `System.Drawing` / `Add-Type` screenshot scripts, or ad-hoc UIA
 dumps. They dead-end on Sprout's `WS_EX_NOREDIRECTIONBITMAP` windows (a pure DirectComposition surface that ordinary
@@ -45,12 +46,37 @@ capture looks wrong.
 | "What does it look like?" / "did my change land visually?" | `debug <app> --from-source` — build Debug, launch, screenshot **and** dump the UIA tree in one shot | [screenshots.md](references/screenshots.md) |
 | "Is the layout / spacing / size right?" | Launch the app resident, then `inspect snapshot <pid>` and compare each node's `bounds` against its `desiredSize` | [layout-inspection.md](references/layout-inspection.md) |
 | "Is it accessible / what does a screen reader see?" | `debug` and read `debug-uia-tree.txt`, or a `drive` script with a `snapshot` step | [accessibility.md](references/accessibility.md) |
-| "Click it and check what happened" | `drive <app> --find-name … --invoke --expect-…` (UIA patterns only) | [interaction.md](references/interaction.md) |
+| "Click it and check what happened" | `drive <app> --find-name … --invoke --expect-…` (UIA patterns only); add `--capture-target owned-popup` when the result is a separate Flyout/menu HWND | [interaction.md](references/interaction.md) |
 | "Does it still pass its own checks?" | `selftest <app>` — the deterministic token gate | [command-reference.md](references/command-reference.md) |
 | "My app is MSIX — run it that way" | Nothing extra: `run` / `deploy` / `drive` / `capture` detect it and launch under package identity | [command-reference.md](references/command-reference.md) |
+| "Run concurrent worktrees without desktop conflicts" | `selftest <app>` uses the shared target host; provision multiple VMs with `vm pool ensure` | [command-reference.md](references/command-reference.md) |
+| "Drive a real app adaptively inside a managed VM" | `drive-shell <publish-dir> --devtools <tool-dir> --pool default` | [interaction.md](references/interaction.md) |
 | Something failed and you don't know why | [troubleshooting.md](references/troubleshooting.md) | |
 
 Full verb list, global options, result schema and exit codes: [command-reference.md](references/command-reference.md).
+
+## Parallel worktrees and managed targets
+
+Ordinary `selftest` calls share one per-user host. `--target auto` prefers a Ready managed Hyper-V member, then a
+configured Windows Sandbox, then localhost. A busy isolated target stays queued instead of silently spilling onto the
+developer desktop:
+
+```powershell
+sprout-devtools selftest <app.exe>
+sprout-devtools host status --json
+```
+
+Create a managed pool from official or licensed Windows media whose SHA-256 you already trust:
+
+```powershell
+sprout-devtools vm image import <windows.iso> --sha256 <hash> --source licensedByol
+sprout-devtools vm pool ensure default --image <hash> --image-index <index> `
+    --members 2 --devtools <self-contained-tool-dir>
+```
+
+For an adaptive real-app session, `drive-shell --pool default` leases one member, copies the published app, and exposes
+live JSON operations for UIA, screenshots, display mode, exact window resize, window enumeration, and shutdown. The
+lease is held through artifact collection, exact checkpoint restore, and final power-off.
 
 ## Packaged apps run packaged, automatically
 
@@ -115,7 +141,7 @@ tree that reads as a real, empty UI. Poll until `response.status` is `complete` 
 
 ### 3. Never synthesize input on the developer's own desktop
 
-The `drive` steps `typeText` / `keyDown` / `keyUp` / `click` / `pointerMove` / `pointerDown` / `pointerUp` / `drag` /
+The `drive` steps `typeText` / `keyDown` / `keyUp` / `click` / `hover` / `pointerMove` / `pointerDown` / `pointerUp` / `drag` /
 `dragToEdge` are implemented with **`SendInput`, which is global**: it injects into whatever window is foreground at
 that instant, not into the app you named. The `gate` command likewise injects real touch into the host desktop. These
 actions have already destroyed a user's live terminal sessions, irreversibly, and there is no undo.
