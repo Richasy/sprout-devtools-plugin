@@ -45,6 +45,46 @@ sprout-devtools capture <app> --app-arg=--some-flag --artifacts out
 
 Same launch/capture path without the Debug build or the tree dump; writes `window.png`.
 
+To preserve the exact state of an app that is already running and navigated, omit the app argument and attach by PID:
+
+```powershell
+sprout-devtools capture --pid 2976 --artifacts out
+```
+
+This mode does not relaunch or re-register the app, activate or foreground its window, inject input, resize it, or
+terminate it. It pins the process creation time and image identity, resolves only that process's main HWND, verifies
+the HWND owner before and after capture, and publishes no screenshot if the process exits or either identity changes.
+Do not combine `--pid` with an app argument, `--app-arg`, `--packaged`, or `--keep-open`. Read `window-capture.json`
+beside `window.png` for the capture dimensions and backend. Use a fresh `--artifacts` directory; attached capture does
+not overwrite existing final screenshot/metadata files.
+
+An owned popup is a separate top-level window, not necessarily part of the main-window image. Select it explicitly:
+
+```powershell
+sprout-devtools capture --pid 2976 --window-title "Details" --artifacts popup-title
+sprout-devtools capture --pid 2976 --hwnd 0x1234 --artifacts popup-handle
+```
+
+Use exactly one selector. Titles are exact and case-sensitive; HWNDs accept positive decimal or `0x`-prefixed hex.
+Selection is immediate and restricted to a unique visible, positively sized top-level window of the held process,
+including owned popups and tool windows. `--wait-ms` remains a default-main-window option. Missing/hidden/ambiguous,
+foreign, or changed selections fail rather than switching to another window.
+The process and selected window are rechecked around capture and before final evidence publication.
+
+Read the additive `selectedWindow` identity in `window-capture.json` (mode, HWND, PID, process creation FILETIME,
+resolved title, owner HWND). `secondaryWindows` still describes compositing relative to that selected window;
+`excluded` does not mean an explicitly selected popup was omitted. No window activation, experiment `SetFocus`,
+desktop input, or synthetic combined bitmap is added.
+
+To require a real Windows.Graphics.Capture frame with no PrintWindow fallback:
+
+```powershell
+sprout-devtools capture --pid 2976 --backend WindowsGraphicsCapture --artifacts out
+```
+
+Explicit backend evidence records both `requestedBackend` and actual `backend`; `Auto` preserves the prior fallback
+behavior and metadata shape.
+
 ## Video: `record`
 
 ```powershell

@@ -161,6 +161,7 @@ root and reports its path. Useful global operations:
 ```json
 { "op": "display" }
 { "op": "display", "args": { "width": 1600, "height": 900 } }
+{ "op": "setContrastTheme", "args": { "scheme": "Aquatic" } }
 { "op": "resizeClient", "args": { "width": 1180, "height": 780, "unit": "Epx" } }
 { "op": "capture" }
 { "op": "query", "args": { "what": "windows" } }
@@ -172,7 +173,43 @@ the mode through `display` before resizing a large app. The session writes `live
 after teardown. The VM lease is released only after exact checkpoint restore and final Off; a teardown failure
 quarantines the member and overrides otherwise successful UI steps.
 
+`setContrastTheme` accepts `Aquatic`, `Desert`, `Dusk`, or `Night sky`. It loads and verifies the guest's installed
+Windows palette, then returns it under `result.contrastTheme`. For a resident Sprout process, wait for an app-visible
+palette witness before capture. Native success does not prove application repaint. Windows App SDK 1.8 WinUI kept
+its first contrast palette in the controlled live experiment; launch WinUI reference processes fresh under each
+preset instead of accepting stale captures. The operation is unavailable to normal host `drive`; mutation requires
+backend-issued guest authorization, and VM rollback is the cleanup boundary.
+
 ## Evidence
+
+### Native IME composition
+
+Use `isolate --backend vm --input-language zh-CN` before launching a Pinyin fixture; use `en-US` for the negative
+control. This guest-bound option registers Windows' default input tip, verifies it, then restores and verifies the
+original user language list and override before checkpoint rollback. It does not install language packages or change
+the shared target service. `inputLanguage` passing is setup evidence only.
+
+Guest authority is the active, authenticated managed-worker connection: the backend holds a verified exclusive VM
+lease, checks its concrete AF_HYPERV destination, and authenticates the guest account with SSPI encryption/signing.
+The worker checks OS partition roles and the interactive principal; desktop, language, and contrast operations
+revalidate the execution capability. A copied JSON receipt, MachineGuid hash, environment variable, or caller flag
+cannot authorize host access. Direct helpers and legacy environment-only targets fail closed. The run-owned socket
+registration is removed before lease release; inspect authority/cleanup evidence and rollback/off.
+
+On a cold Pinyin profile, the first composition can show a Bing-suggestions consent card with keyboard focus on its
+Enable button. Before sending more keys, use guest-only `findDesktop` with
+`TEMPLATE_PART_SuggestionCollapseButton` and UIA `invoke` to decline it. Do not let Space accidentally enable cloud
+suggestions. `findDesktop` / `findWithin` can then locate the real candidate under `IME_Candidate_Window`;
+`snapshotDesktop` captures its Control View and physical bounds. These two desktop operations require backend-issued
+guest authorization and the separate VM drive path; they cannot read the developer desktop.
+
+Use native `keyDown` / `keyUp`, never `typeText` or UIA `setValue`,
+to prove native composition. Require nonempty preedit, composing state, the exact committed Chinese result, and
+cancel/focus-loss/revoke isolation. Wait for a named state witness rather than adding sleeps or reading the value
+immediately after `SendInput`.
+
+The repository's native EDIT and ordinary Sprout controls, scripts, receipts, and full command are documented in
+[`docs/guide/native-ime-validation.md`](../../../../docs/guide/native-ime-validation.md).
 
 Every drive writes `uia-tree.txt` and `uia-snapshot.json` bounded by `--snapshot-depth` (default 8, max 250 nodes).
 That bound applies to the **evidence only** — it never weakens the `--find-*` gate, which searches the full tree.

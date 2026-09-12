@@ -18,13 +18,29 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 
 ## Trusting a result
 
+- **DO** inspect `preparation.diagnostic` before attributing an experiment's `uiaUnavailable` to slow startup.
+  Strict drive waits for a window before creating its ordinary UIA client; experiment preparation shares one readiness
+  budget across window discovery and a timeout-bounded UIA client. A later successful drive is not proof that either
+  difference caused the failure. **DON'T** discard the last connection exception when a deadline or a later poll ends
+  preparation; retain only type/HRESULT, never provider messages or UIA text.
 - **DON'T** treat `debug` reporting `passed` as "the app works". Its only assertion is `windowCaptured` (`>0x0`) — a
   .NET crash dialog satisfies it. **DO** read `debug-uia-tree.txt` and open `debug-window.png` every time.
 - **DON'T** report on a screenshot you have not opened. **DO** view the PNG; image files render directly.
 - **DON'T** treat a screenshot or `recording.mp4` as a red/green gate — post-compositor capture varies with GPU,
   driver, DWM, and the wallpaper behind a transparent window. **DO** decide with `--expect-*` assertions, the
   `selftest` token, or snapshot data, and use the image to *see*.
+- **DON'T** report `recording.json.actualFps` as the app's present rate when the recorder reports backpressure drops;
+  the H.264/readback worker is then the limiting pipeline. **DO** use `experiment --frame-timing` for metadata-only WGC
+  compositor timestamps, and keep `record` for pixels/video evidence.
+- **DO** use the built-in experiment scroll preset instead of writing a one-off plan: `--scroll-mode page` measures a
+  steady UIA scroll workload; `percent` deliberately stresses long normalized jumps similar to scrollbar movement.
 - **DO** read `tests[].assertions[]` and `artifacts[]` from `result.json`. **DON'T** parse stdout prose.
+- **DON'T** truncate GPU engines by identity before choosing the busiest rows: idle engines can hide the actual
+  physical-adapter workload. **DO** retain the highest-utilization rows independently for the target and observed
+  process, then order those rows by identity. Absence from the bounded list does not prove zero activity.
+- **DO** collect `doctor --gpu-adapters --json` for each measurement group and match GPU engine LUIDs to its software
+  flags. **DON'T** compare software-engine percentages with physical-adapter percentages or infer an app's adapter
+  from the inventory order. Adapter inventory is not process attribution.
 
 ## Snapshots and layout
 
@@ -56,11 +72,24 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 
 ## Running apps
 
-- **DON'T** expect `debug` to leave the app running — it launches, captures, and exits. **DO** use `drive --keep-open`,
-  or start the published exe yourself, when you need a resident process to `inspect snapshot`.
+- **DON'T** expect `debug` to leave the app running — it launches, captures, and exits. **DO** use
+  `drive --keep-open` (or the matching `capture` / `record` / `gate` option) when you need a resident process to
+  `inspect snapshot`. Use `deploy` for resident files/package registration, not for a parked window. **DON'T** assume a
+  RID-specific `build` output is self-contained; direct-launch it only when the project declares that deployment model,
+  or launch it through its matching `dotnet` runtime.
 - **DON'T** hand-roll a `PrintWindow` / `System.Drawing` / `Add-Type` screenshot script or an ad-hoc UIA dump. Sprout
   windows are `WS_EX_NOREDIRECTIONBITMAP` pure DirectComposition surfaces that ordinary GDI capture returns blank for,
   and pwsh forwards `System.Drawing.Common` so `Bitmap`/`Graphics` do not even resolve. **DO** use this CLI.
+- **DO** use `capture --pid <pid>` when the already-navigated window state must survive inspection. It verifies exact
+  process/HWND identity around capture and never launches, activates, foregrounds, resizes, injects input, or terminates.
+  **DON'T** add an app argument, `--app-arg`, `--packaged`, or `--keep-open`; attach mode rejects them before opening
+  the target.
+- **DO** explicitly select an owned popup with `capture --pid --window-title <exact-title>` or `--hwnd <handle>`;
+  **DON'T** assume the main capture's `secondaryWindows: excluded` image contains separate popup pixels.
+  Selectors are mutually exclusive, immediate, and limited to the held process's visible top-level windows.
+  **DON'T** treat them as permission to call attached-experiment `SetFocus`, activate, or synthesize input.
+- **DO** read `selectedWindow` identity separately from `secondaryWindows`; **DON'T** mark a direct popup capture as
+  secondary-window compositing or describe a synthetic bitmap as a real capture.
 - **DON'T** run a capture over RDP or in a disconnected session — the HWNDs survive but no compositor frame is
   produced, so frames come back blank. **DO** use a local session, Windows Sandbox, or an auto-logon Hyper-V guest.
 - **DO** attach a `--`-prefixed option value with `=` (`--app-arg=--some-flag`), or it parses as another option.
@@ -90,3 +119,23 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
   `ERROR_INVALID_PARAMETER` (87), so the gesture fails at its first contact and `gate` cannot drive touch at all --
   on any machine. Measured 3/3 both ways with every other field held constant. **DO** send
   `INRANGE | INCONTACT | DOWN`. A unit test that asserts the flag *is* present pins the defect instead of catching it.
+# Native IME guest controls
+
+- **DO** establish a native Windows EDIT positive control when both local and remote custom editors fail; **DON'T**
+  infer a remote-protocol defect from Latin-only input in an English-only guest.
+- **DO** use guest-bound `isolate --input-language zh-CN`, check registration/restoration receipts and pristine
+  rollback, and send native `keyDown` / `keyUp`; **DON'T** count a successful profile-activation HRESULT,
+  a keyboard-layout handle, UIA `SetValue`, or Unicode `typeText` as composition evidence.
+- **DO** wait for composing/preedit and committed-value witnesses; **DON'T** repair an early UIA sample with a sleep or
+  accept retry-only native IME success.
+- **DO** observe and explicitly decline Pinyin's OS-owned first-run Bing-suggestions card before continuing after the
+  first N; **DON'T** assume the app's logical focus means that Space will not activate the card's focused Enable button.
+  Use guest-bound `findDesktop` and stable AutomationIds, then inspect the actual candidate panel. Do not modify
+  Sprout's IME implementation until a control with that prompt handled still reproduces the failure.
+- **DO** derive guest-only permission from the authenticated active managed-worker session and OS-observed partition
+  identity; **DON'T** trust writable authorization files, caller-computable MachineGuid hashes, flags, or environment
+  markers. A diagnostic receipt is not a grant.
+- **DO** keep language/contrast mutation inside the authenticated guest worker and revalidate its lease at native
+  boundaries; **DON'T** return a boolean to an arbitrary host process and let that process perform the operation.
+- **DO** use one reader for a live encrypted stream; **DON'T** run a concurrent `Poll`/`Available` EOF detector beside
+  it, because the real reader can drain the data between those observations and spuriously revoke the session.

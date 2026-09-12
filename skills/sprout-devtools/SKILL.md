@@ -10,7 +10,8 @@ description: >-
 
 `sprout-devtools` is the first-party CLI for **seeing and checking a real Sprout application**. It launches the app,
 screenshots it after the compositor, dumps its accessibility tree, reads the framework's own layout truth out of the
-running process, and drives controls through UI Automation — all emitting structured JSON instead of prose.
+running process, and drives controls through UI Automation. Check commands emit structured result JSON; management
+commands and interactive/server commands have their own documented output contracts.
 
 Use it whenever the request is some form of *"is the UI right?"*:
 
@@ -43,14 +44,17 @@ capture looks wrong.
 
 | What you were asked | Do this | Detail |
 |---|---|---|
-| "What does it look like?" / "did my change land visually?" | `debug <app> --from-source` — build Debug, launch, screenshot **and** dump the UIA tree in one shot | [screenshots.md](references/screenshots.md) |
+| "What does it look like?" / "did my change land visually?" | `debug <project> --from-source` — build Debug, launch, screenshot **and** dump the UIA tree in one shot | [screenshots.md](references/screenshots.md) |
+| "Capture the app exactly where it is now" | `capture --pid <pid>` — attach to the current process/window without launch, activation, foregrounding, input, resize, or termination | [screenshots.md](references/screenshots.md) |
+| "Capture its separate popup/dialog" | `capture --pid <pid> --window-title <exact-title>` or `--hwnd <decimal-or-0x-hex>` — explicitly select one visible owned top-level window without changing default capture or experiment authority | [screenshots.md](references/screenshots.md) |
 | "Is the layout / spacing / size right?" | Launch the app resident, then `inspect snapshot <pid>` and compare each node's `bounds` against its `desiredSize` | [layout-inspection.md](references/layout-inspection.md) |
 | "Is it accessible / what does a screen reader see?" | `debug` and read `debug-uia-tree.txt`, or a `drive` script with a `snapshot` step | [accessibility.md](references/accessibility.md) |
 | "Click it and check what happened" | `drive <app> --find-name … --invoke --expect-…` (UIA patterns only); add `--capture-target owned-popup` when the result is a separate Flyout/menu HWND | [interaction.md](references/interaction.md) |
+| "Measure an existing app process unattended" | `experiment --pid <pid> --plan <json>` for arbitrary allowlisted UIA actions, `--scroll-automation-id <id>` for an in-memory scroll sweep, or `--metrics-only` for a passive control — prepare one command-owned attached session before warm-up, leave target lifecycle/window ownership with the caller, and sample exact-PID process plus optional PDH GPU/runtime metrics | [command-reference.md](references/command-reference.md) |
 | "Does it still pass its own checks?" | `selftest <app>` — the deterministic token gate | [command-reference.md](references/command-reference.md) |
 | "My app is MSIX — run it that way" | Nothing extra: `run` / `deploy` / `drive` / `capture` detect it and launch under package identity | [command-reference.md](references/command-reference.md) |
 | "Run concurrent worktrees without desktop conflicts" | `selftest <app>` uses the shared target host; provision multiple VMs with `vm pool ensure` | [command-reference.md](references/command-reference.md) |
-| "Drive a real app adaptively inside a managed VM" | `drive-shell <publish-dir> --devtools <tool-dir> --pool default` | [interaction.md](references/interaction.md) |
+| "Drive a real app adaptively inside a managed VM" | `drive-shell <publish-dir> --devtools <tool-dir> --pool default`; use guest-only `setContrastTheme` for live OS contrast changes | [interaction.md](references/interaction.md) |
 | Something failed and you don't know why | [troubleshooting.md](references/troubleshooting.md) | |
 
 Full verb list, global options, result schema and exit codes: [command-reference.md](references/command-reference.md).
@@ -123,17 +127,20 @@ real UI should be, the run failed no matter what the status says.
 
 `debug` launches the app, captures evidence, and **exits it**. There is no live process left to inspect afterwards.
 
-When you need a *resident* app — to snapshot it, to iterate, or to let a human look at it — start it yourself and then
-attach:
+When you need a *resident* app — to snapshot it, to iterate, or to let a human look at it — prefer a DevTools command
+that deliberately keeps the launched process alive:
 
 ```powershell
-sprout-devtools build <project> --artifacts out       # or your repo's own build script
-Start-Process out\publish\<YourApp>.exe               # resident; keep it running
-sprout-devtools inspect list                          # find its pid
-sprout-devtools inspect snapshot <pid> > snapshot.json
+sprout-devtools drive <app> --find-name "Ready" --expect-enabled true --keep-open
+sprout-devtools inspect list
+sprout-devtools inspect snapshot <pid-or-instance-id>
 ```
 
-`drive … --keep-open` does the same thing while also putting the app into a particular state first.
+Launch-mode `capture`, `record`, and `gate` also expose `--keep-open` for their own workflows. Attached
+`capture --pid` already leaves the process untouched and rejects `--keep-open`. Use `deploy <project>` when the
+**files or package registration** must remain resident; its verification launch still exits. Launch a deployed
+executable directly only when that project declares a self-contained/AOT deployment, or launch it through its matching
+`dotnet` runtime. A RID-specific `sprout-devtools build` does not itself guarantee self-containment.
 
 Give the app a couple of seconds before snapshotting: a cold app briefly reports `status: partial` with an almost-empty
 tree that reads as a real, empty UI. Poll until `response.status` is `complete` — see
@@ -151,23 +158,26 @@ The **UIA pattern** steps — `find`, `setFocus`, `invoke`, `toggle`, `setValue`
 deterministic assertion anyway. If a real desktop gesture is genuinely the subject, run it in an isolated guest
 (`isolate --drive-script`, `drive-shell`). See [interaction.md](references/interaction.md).
 
-## Reading an orchestration result
+## Reading command results
 
-The orchestration commands (all verbs except `inspect`) write one `result.json` under `--artifacts <dir>` (default
-`.sprout-devtools/<runId>`) and return:
+Application check commands such as `build`, `selftest`, `capture`, `record`, `gate`, `drive`, `produce`, `run`,
+`experiment`, `deploy`, `debug`, and `isolate` write one `sprout.devtools.orchestration.result.v1` `result.json` under
+`--artifacts <dir>` (default `.sprout-devtools/<runId>`) and return:
 
 | Exit code | Meaning |
 |---|---|
 | `0` | all assertions passed |
 | `1` | an assertion failed (the app or the expectation is wrong) |
-| `2` | the harness itself errored (bad arguments, app never launched, environment missing) |
+| `2` | skipped, errored, or another non-verdict status; read `run.status` and `tests[].status` |
 
 **Read `tests[].assertions[]` for the verdict and `artifacts[]` for the evidence files — not stdout prose.** Add
 `--json` to get the machine-readable form on stdout. Status values are lowercase `passed` / `failed` / `skipped` /
 `errored`, and the overall status is worst-wins.
 
-`inspect` instead emits the `sprout.devtools.cli.result.v1` envelope on stdout. It returns 0 on success; failures use
-2 for invalid input, 3 for discovery/timeout/I/O, 4 for access denial, and 5 for protocol or state errors.
+`doctor`, `host`, and `vm` are management commands and do not promise an orchestration `result.json`. Interactive
+`drive-shell` and the guest-internal `agent` server have separate lifecycle/output contracts. `inspect` emits the
+`sprout.devtools.cli.result.v1` envelope on stdout; it returns 0 on success, then 2 for invalid input, 3 for
+discovery/timeout/I/O, 4 for access denial, and 5 for protocol or state errors.
 
 A screenshot is **triage evidence, not a gate**: post-compositor capture depends on the GPU, driver, DWM and even the
 wallpaper behind a transparent window. Use it to *see*; use assertions and snapshot data to *decide*.
@@ -180,6 +190,6 @@ wallpaper behind a transparent window. Use it to *see*; use assertions and snaps
 | [references/layout-inspection.md](references/layout-inspection.md) | Verifying layout, spacing and sizes from framework truth; the snapshot JSON shape |
 | [references/accessibility.md](references/accessibility.md) | Reading and checking the UI Automation tree |
 | [references/interaction.md](references/interaction.md) | Acting on controls and asserting state; drive scripts |
-| [references/command-reference.md](references/command-reference.md) | Every verb, its options, the result schema |
+| [references/command-reference.md](references/command-reference.md) | Every public verb, its options, and each output/result contract |
 | [references/troubleshooting.md](references/troubleshooting.md) | A command failed, produced nothing, or found no target |
 | [pitfalls.md](pitfalls.md) | The full DO / DON'T list |

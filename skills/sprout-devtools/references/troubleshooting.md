@@ -16,8 +16,19 @@ A shell opened before the install will not see the shim. Open a new one.
 
 ## `You must install .NET to run this application` / a runtime error on launch
 
-The tool is framework-dependent and needs a **.NET 10** runtime. Check with `dotnet --list-runtimes`. If several .NET
-installs exist, point `DOTNET_ROOT` at the one carrying .NET 10.
+First identify which executable failed:
+
+- The installed `sprout-devtools` tool and the in-repository `Sprout.DevTools` host are framework-dependent and need a
+  **.NET 10** runtime. Check `dotnet --list-runtimes`. From source, run the host through the pinned runtime:
+  `dotnet run --project tools\Sprout.DevTools\Sprout.DevTools.csproj -- <verb>`. Do not make the built apphost the
+  normal invocation.
+- A target produced by `sprout-devtools build` is RID-specific, but is self-contained only when its project declares
+  `SelfContained` or `PublishAot`. If it is framework-dependent, launch it through the matching `dotnet` runtime or
+  install that runtime; do not assume the `.exe` can run alone.
+- The self-contained DevTools publish delivered to Sandbox/Hyper-V, and a self-contained/AOT target app, may be
+  launched directly without `DOTNET_ROOT`.
+
+If several .NET installations exist, point `DOTNET_ROOT` at the one carrying .NET 10.
 
 ## `inspect list` returns no targets
 
@@ -60,8 +71,9 @@ One PID hosts more than one diagnostics session. Pass the `instanceId` GUID from
 
 ## `debug` says `passed` but the screenshot is wrong
 
-That is expected behaviour, not a bug: the only assertion is `windowCaptured` (`>0x0`). Read `debug-uia-tree.txt` to
-find out what was really captured. A .NET crash dialog passes this assertion.
+This is a current limitation: the only assertion is `windowCaptured` (`>0x0`). Read `debug-uia-tree.txt` to find out
+what was really captured. A .NET crash dialog passes this assertion, so `debug` remains triage rather than proof that
+the intended application surface launched.
 
 ## A `find` fails
 
@@ -70,6 +82,24 @@ find out what was really captured. A .NET crash dialog passes this assertion.
 - The name may differ from the visible text. Search the tree dump for the control type first.
 - Raise `--find-timeout-ms` (provider-ready gate) and `--wait-ms` (main window poll) for a slow app.
 - Use `--find-within-*` when the control is a descendant of a container that also matches.
+
+## Acrylic looks like a solid white or gray panel
+
+This is not established by `debug`/`drive` saying `passed`: a captured window and `BrushKind.Acrylic` do not prove that
+the requested backdrop was sampled. First distinguish desktop/window Acrylic, current-target D2D Acrylic, and
+cross-surface in-app `CompositionAcrylicSurface`.
+
+For a drawer over promoted or transformed content, prefer a retained `CompositionAcrylicSurface` behind the
+interactive pane, with an explicitly transparent SplitView pane background. The ordinary `AcrylicSurface` remains
+inline D2D. Read the material observation's `RealizedRoute`, `PolicyReasons`, and `BackendFailureReason`;
+`RenderTransform` / `LayerClip` are rendering-scope limitations, not instructions to lower the fallback color's alpha.
+Respect real accessibility, OS-policy, and capability fallback.
+
+Changing only a uniform panel's white/gray shade may just be changing `FallbackColor`. Confirm blurred transmission
+over a live contrasting backdrop as well as the actual route; an opaque tint/foreground layer can still conceal a
+working material. A dark light-dismiss scrim is a separate choice: `LightDismissOverlayMode.Off` removes dimming, not
+outside-click dismissal. See the
+[framework's Acrylic drawer recipe](https://github.com/Richasy/Sprout/blob/main/docs/guide/material.md#common-overlay-drawer-recipe).
 
 ## A snapshot node's numbers look impossible
 
