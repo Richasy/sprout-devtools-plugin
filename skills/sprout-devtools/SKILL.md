@@ -54,6 +54,7 @@ capture looks wrong.
 | "Does it still pass its own checks?" | `selftest <app>` — the deterministic token gate | [command-reference.md](references/command-reference.md) |
 | "My app is MSIX — run it that way" | Nothing extra: `run` / `deploy` / `drive` / `capture` detect it and launch under package identity | [command-reference.md](references/command-reference.md) |
 | "Run concurrent worktrees without desktop conflicts" | `selftest <app>` uses the shared target host; provision multiple VMs with `vm pool ensure` | [command-reference.md](references/command-reference.md) |
+| "Use an existing Hyper-V VM from another provisioner" | Supply `--existing-vm-profile` to explicit VM `selftest`, `isolate`, or `drive-shell`; bind VM/checkpoint IDs and credential references without adopting the VM | [command-reference.md](references/command-reference.md) |
 | "Drive a real app adaptively inside a managed VM" | `drive-shell <publish-dir> --devtools <tool-dir> --pool default`; use guest-only `setContrastTheme` for live OS contrast changes | [interaction.md](references/interaction.md) |
 | Something failed and you don't know why | [troubleshooting.md](references/troubleshooting.md) | |
 
@@ -82,6 +83,13 @@ For an adaptive real-app session, `drive-shell --pool default` leases one member
 live JSON operations for UIA, screenshots, display mode, exact window resize, window enumeration, and shutdown. The
 lease is held through artifact collection, exact checkpoint restore, and final power-off.
 
+Caller-owned existing VMs use `--existing-vm-profile`, not fabricated pool membership or name-only environment
+variables. The profile pins immutable VM/checkpoint IDs, explicit restore-and-power-off authority, and namespaced
+Credential Manager references. It is mutually exclusive with an explicitly selected `--pool`; `selftest` additionally
+requires `--target vm`. Busy targets queue, and an executed failure never retries another VM or the host.
+After a submitted selftest times out, inspect `targetJobId`, `targetJobTerminal`, and `targetJobCleanupVerified`.
+Do not remove run-owned credentials or profiles until terminal cleanup is proven; retain them for recovery otherwise.
+
 ## Packaged apps run packaged, automatically
 
 If your app ships as MSIX, it is launched **with package identity** by default — so notifications, background tasks,
@@ -108,6 +116,24 @@ and `Microsoft.Windows.SDK.BuildTools` package references; `Package.appxmanifest
 Packaging happens at publish time, so `run <project>` (which publishes) produces and then uses the package in one step.
 Use `deploy` rather than repeated `run` when the loop needs settings or granted capabilities to survive between
 iterations — `run` removes its development registration each time.
+
+For a reusable Developer-Mode package, deploy a build-produced loose layout into a separate stable resident directory:
+
+```powershell
+sprout-devtools deploy out\AppX --package-dir out\resident-package --keep-open --artifacts out\deploy --json
+```
+
+Leave `--form` omitted so the real loose manifest is auto-detected; explicit `--form msix` is the synthetic-package
+route.
+
+Close the prior app before the next update. The identity-scoped operation refuses Store/non-development packages,
+publisher/version changes, ambiguous registrations, and any active process belonging to the existing package or
+running from its layout. It stages and hashes the new payload before replacing the stable directory, re-registers the
+same version without uninstalling, and preserves application data. Post-swap failures restore/re-register the exact
+previous layout or remove only a proven newly created Development-Mode registration; an unsafe rollback fails with
+retained recovery paths. `--keep-open` also reports the exact retained process image SHA-256. `--no-launch` performs
+only the update; omit both launch switches for a verification launch that exits. See
+[`docs/guide/devtools-package-updates.md`](../../../docs/guide/devtools-package-updates.md).
 
 ## Three things that will mislead you
 
@@ -138,7 +164,8 @@ sprout-devtools inspect snapshot <pid-or-instance-id>
 
 Launch-mode `capture`, `record`, and `gate` also expose `--keep-open` for their own workflows. Attached
 `capture --pid` already leaves the process untouched and rejects `--keep-open`. Use `deploy <project>` when the
-**files or package registration** must remain resident; its verification launch still exits. Launch a deployed
+**files or package registration** must remain resident; its ordinary verification launch exits, while a reusable loose
+package may use `deploy --package-dir ... --keep-open` to retain the exact AUMID-launched process. Launch a deployed
 executable directly only when that project declares a self-contained/AOT deployment, or launch it through its matching
 `dotnet` runtime. A RID-specific `sprout-devtools build` does not itself guarantee self-containment.
 

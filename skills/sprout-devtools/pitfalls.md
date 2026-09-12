@@ -74,9 +74,14 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 
 - **DON'T** expect `debug` to leave the app running — it launches, captures, and exits. **DO** use
   `drive --keep-open` (or the matching `capture` / `record` / `gate` option) when you need a resident process to
-  `inspect snapshot`. Use `deploy` for resident files/package registration, not for a parked window. **DON'T** assume a
-  RID-specific `build` output is self-contained; direct-launch it only when the project declares that deployment model,
-  or launch it through its matching `dotnet` runtime.
+  `inspect snapshot`. Use `deploy` for resident files/package registration; only its reusable loose-package
+  `--keep-open` route parks the exact process it just activated. **DON'T** assume a RID-specific `build` output is
+  self-contained; direct-launch it only when the project declares that deployment model, or launch it through its
+  matching `dotnet` runtime.
+- **DO** give reusable loose-package development a separate stable `--package-dir`, close its prior process, and let
+  `deploy` perform the identity-scoped same-version upsert. **DON'T** build into the registered directory, pre-remove
+  the package, or use `drive --packaged` as an updater: the resident updater deliberately refuses active or ambiguous
+  ownership and never terminates a foreign process.
 - **DON'T** hand-roll a `PrintWindow` / `System.Drawing` / `Add-Type` screenshot script or an ad-hoc UIA dump. Sprout
   windows are `WS_EX_NOREDIRECTIONBITMAP` pure DirectComposition surfaces that ordinary GDI capture returns blank for,
   and pwsh forwards `System.Drawing.Common` so `Bitmap`/`Graphics` do not even resolve. **DO** use this CLI.

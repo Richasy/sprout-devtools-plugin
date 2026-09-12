@@ -131,6 +131,45 @@ subtree as evidence). `snapshot` captures the drive root at that exact step and 
 `uia-snapshot-step-<one-based-step>.json`; it remains available when `--no-capture` disables the automatic final
 screenshot/tree/snapshot bundle.
 
+## Closing the owned main window without synthetic input
+
+Native caption Close is not necessarily a useful UIA element. **DO** request normal cancelable `WM_CLOSE` through
+the JSON-only `closeWindow`, then observe what the application actually did:
+
+```json
+[
+  { "op": "closeWindow" },
+  { "op": "waitForWindowState", "state": "Hidden" }
+]
+```
+
+`closeWindow` acknowledges **only** that the request was queued, not hidden/closed/exited success.
+`waitForWindowState` accepts `Visible`, `Hidden`, or `Closed`. Hidden requires the original window to exist with
+`WS_VISIBLE` cleared; Closed requires observed destruction of a previously bound window. Visible is the native
+visibility flag, not an occlusion assertion. For true close-and-exit, use:
+
+```json
+[
+  { "op": "closeWindow" },
+  { "op": "waitForWindowState", "state": "Closed" },
+  { "op": "waitForProcessExit" }
+]
+```
+
+Both waits use `--find-timeout-ms`, the remaining action deadline, and caller cancellation. They stop at the observed
+condition or fail with the last state, never sleep to guess completion. The exit operation observes the held process
+generation without killing it; it does not prove application flush. Choose `--no-capture` for hidden/closed windows.
+
+**DO** retain `--require-cleanup` when cleanup proof is needed. These operations synthesize no input and leave its
+guards unchanged. The separate hash-bound `processCleanup` receipt remains authoritative for final cleanup.
+**DON'T** target a teaching tip's "Close" by accident, substitute Alt+F4, or treat a missing HWND as Hidden.
+For window operations, the root binds one actual main HWND before the script, its process creation FILETIME, owning
+thread, and a unique native window property (removed at completion). A changed/reused/foreign HWND fails closed.
+These steps never follow a `find` reconnection to close a replacement window, accept a PID/HWND in JSON, or automate
+the global tray.
+They emit `window`/`process` assertions with process-generation fields. They are single-app `drive` operations, not
+live-channel, `experiment`, or multi-app fixture operations.
+
 ## Leaving the app running
 
 `--keep-open` leaves the app alive after the drive instead of terminating it. This is the clean way to get a

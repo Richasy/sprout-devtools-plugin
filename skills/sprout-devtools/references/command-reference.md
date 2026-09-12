@@ -333,6 +333,7 @@ Runs the app's headless token convention (`=> PASS`, `leaked=0`, exit 0).
 | `--queue-wait-seconds <seconds>` | Bound target selection, queueing, and execution; default 600. |
 | `--target-tool-dir <dir>` | Self-contained DevTools payload for an isolated target. |
 | `--pool <name>` | Managed Hyper-V pool for auto/vm routing; default `default`. |
+| `--existing-vm-profile <json>` | Explicit caller-owned Hyper-V targets with immutable VM/checkpoint IDs and credential references; requires `--target vm` and rejects explicit `--pool`. |
 
 Feature names start with an ASCII letter and may contain letters, digits, underscores, and hyphens. Required tokens
 match the complete name: `window-hide=ok` satisfies `--expect-token window-hide`, never `--expect-token hide`.
@@ -340,6 +341,10 @@ A missing, bad, or skipped required token still fails the gate.
 
 Target-routed result metadata includes the requested target, pool, durable job id, child timeout, and total queue-wait
 bound. `--target vm` failures retain those fields and the terminal error without implying that localhost ran.
+After submission timeout/cancellation, the client requests job cancellation and waits separately for cleanup.
+`run.host.targetJobTerminal` and `targetJobCleanupVerified` must both be true before run-owned credential/profile
+cleanup. `targetJobId`, `targetJobStatus`, `targetCancellationRequested`, and `targetCleanupState` retain the recovery
+context when cleanup is unproven. A passed identity/provenance check cannot promote a skipped operational run.
 
 ### `capture [<app|publishDir|layoutDir>] [--pid <positive>]`
 
@@ -526,11 +531,24 @@ Builds when the input is a project, then runs self-test/capture/package/parity c
 
 ### `deploy <app|publishDir|project>`
 
-Leaves files or package registration resident. Its optional verification launch exits; it does not park a window.
+Leaves files or package registration resident. Its ordinary verification launch exits; a reusable Developer-Mode
+loose package may explicitly retain the exact launched process with `--keep-open`.
 
 `--form auto|exe|msix|both`, `--from-source`, `--configuration`/`-c`, `--runtime`/`-r`, `--dotnet`,
-`--build-timeout-ms`, `--deploy-dir`, `--exe`, `--identity-name`, `--display-name`, `--publisher`, `--version`,
-`--synthetic-msix`, `--app-arg`, `--no-launch`, `--wait-ms`, `--settle-ms`, `--timeout-ms`.
+`--build-timeout-ms`, `--deploy-dir`, `--package-dir`, `--exe`, `--identity-name`, `--display-name`, `--publisher`,
+`--version`, `--synthetic-msix`, `--app-arg`, `--no-launch`, `--keep-open`, `--wait-ms`, `--settle-ms`,
+`--timeout-ms`.
+
+For a build-produced loose AppX layout, `--package-dir <stable-dir>` selects the resident layout used across repeated
+same-version updates. The source and resident directories must be separate. The update holds the package identity
+lease, refuses non-development or ambiguous registrations and active package/layout processes, stages and hashes the
+new files before swapping the stable layout, and never uninstalls the prior package. Post-swap failures restore and
+re-register the exact previous layout or remove only a proven newly created development registration; incomplete
+recovery reports retained paths. `--keep-open` leaves only this command's PID/generation/package/image-verified
+AUMID-launched process running and records its executable SHA-256; `--no-launch` and `--keep-open` are mutually
+exclusive. Both options are rejected for signed MSIX deployment. Omit `--form` for a real loose layout;
+`--form msix` requests the synthetic package route. See
+[`devtools-package-updates.md`](../../../../docs/guide/devtools-package-updates.md).
 
 ### `debug <app|publishDir|project>`
 
@@ -684,6 +702,41 @@ The recursive `--state-dir <dir>` option selects image/pool/provisioning state.
 | `vm quarantine explain <pool>` | required `--member <id>` |
 | `vm quarantine recover <pool>` | required `--member <id>`, `--wait-seconds 0..600` |
 
+### Caller-owned existing VM profiles
+
+Credential operations are `vm credential set <id> --user <user> --secret-stdin`, `vm credential status <id> --json`,
+and `vm credential remove <id> --confirm`. Set refuses an existing reference unless `--replace` is explicit;
+set/status/remove serialize on that reference. Never store a password in a profile or command line.
+
+Use an untracked profile with schema `sprout.devtools.existing-hyperv-targets.v1` and a `targets` array of 1..16 entries:
+
+```json
+{
+  "schema": "sprout.devtools.existing-hyperv-targets.v1",
+  "targets": [{
+    "id": "existing-a",
+    "vmName": "<exact-vm-name>",
+    "vmId": "11111111-1111-1111-1111-111111111111",
+    "checkpointName": "<exact-checkpoint-name>",
+    "checkpointId": "22222222-2222-2222-2222-222222222222",
+    "guestUserName": ".\\Admin",
+    "credentialName": "Sprout.DevTools/ExistingHyperV/existing-a/GuestPassword",
+    "authority": "restoreCheckpointAndPowerOff"
+  }]
+}
+```
+
+The caller authorizes restoration and final power-off of that exact checkpoint. The VM must support PowerShell
+Direct, an interactive console, and the app/tool runtime; its creator is irrelevant.
+
+The same `--existing-vm-profile` works with `isolate --backend vm` and `drive-shell`. It rejects `--pool` and the
+name-only `--legacy-vm-env` route. Immutable identities are checked while the per-VM lease is held. Managed owner
+markers cannot be bypassed through this route, and no VHD/pool ownership, provisioning, or repair is acquired.
+Operational failure and failed abandoned-owner recovery are terminal. Results expose `targetVmId`,
+`targetCheckpointId`, and `targetOwnership=callerOwned`; exact rollback/off remains mandatory.
+Managed-only authenticated-worker operations such as app fixtures and OS theme/input-language mutation remain
+managed-pool-only.
+
 ## Interactive command
 
 ### `drive-shell <app>`
@@ -693,7 +746,7 @@ result.
 
 `--devtools`, `--devtools-exe`, `--exe`, `--app-arg`, `--script`, `--service-guid`, `--deadline`,
 `--connect-timeout`, `--call-timeout`, `--find-timeout`, `--no-evidence`, `--vm-wait-seconds`, `--pool`,
-`--target-state-dir`.
+`--target-state-dir`, `--existing-vm-profile`.
 
 The guest-only global operation
 `{"op":"setContrastTheme","args":{"scheme":"Aquatic"}}` keeps the same app process alive while switching among
