@@ -54,7 +54,7 @@ capture looks wrong.
 | "Does it still pass its own checks?" | `selftest <app>` — the deterministic token gate | [command-reference.md](references/command-reference.md) |
 | "Run .NET tests without desktop interference" | Publish an MTP test executable with TRX reporting, then `test <tests.exe> --target vm --target-tool-dir <tools>`; non-empty passing tests and verified guest cleanup are required | [command-reference.md](references/command-reference.md) |
 | "My app is MSIX — run it that way" | Nothing extra: `run` / `deploy` / `drive` / `capture` detect it and launch under package identity | [command-reference.md](references/command-reference.md) |
-| "Run concurrent worktrees without desktop conflicts" | `selftest <app>` uses the shared target host; provision multiple VMs with `vm pool ensure` | [command-reference.md](references/command-reference.md) |
+| "Run concurrent worktrees without desktop conflicts" | `selftest <app>` uses the shared target host; when that broker must be worktree-owned, combine a private `--target-state-dir` with the existing pool's `--pool-state-dir` | [command-reference.md](references/command-reference.md) |
 | "Use an existing Hyper-V VM from another provisioner" | Supply `--existing-vm-profile` to explicit VM `selftest`, `isolate`, or `drive-shell`; bind VM/checkpoint IDs and credential references without adopting the VM | [command-reference.md](references/command-reference.md) |
 | "Drive a real app adaptively inside a managed VM" | `drive-shell <publish-dir> --devtools <tool-dir> --pool default`; add `--capture-backend WindowsGraphicsCapture` when compositor pixels are required, and use guest-only `setContrastTheme` for live OS contrast changes | [interaction.md](references/interaction.md) |
 | Something failed and you don't know why | [troubleshooting.md](references/troubleshooting.md) | |
@@ -71,6 +71,24 @@ developer desktop:
 sprout-devtools selftest <app.exe>
 sprout-devtools host status --json
 ```
+
+When the shared broker cannot run the exact current CLI contract, isolate only
+the broker while retaining the authorized managed pool:
+
+```powershell
+sprout-devtools test <tests.exe> --target vm --pool default `
+  --target-state-dir <worktree-broker-state> `
+  --pool-state-dir <existing-pool-state> `
+  --target-tool-dir <exact-self-contained-tools>
+```
+
+The first root owns the secure pipe, host lock, journal, and job artifacts. The
+second is read only as the selected pool manifest/payload/credential-reference
+root. The request, receipt, journal, and result bind the normalized pool root;
+an older host or unsupported backend fails before VM execution. Global per-VM
+leases, immutable VM/checkpoint validation, cancellation, service cleanup, and
+rollback remain unchanged. Omit `--pool-state-dir` for the compatible
+single-root behavior.
 
 Create a managed pool from official or licensed Windows media whose SHA-256 you already trust:
 

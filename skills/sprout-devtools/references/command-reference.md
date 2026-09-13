@@ -35,13 +35,19 @@ Do not assume the resulting `.exe` can run without its matching runtime.
 Runs a self-contained Microsoft.Testing.Platform executable with TRX reporting
 inside an explicitly selected VM. Required: `--target vm` and
 `--target-tool-dir <self-contained-tools>`. Optional: `--filter`, `--timeout`,
-`--queue-wait-seconds`, `--pool`, `--target-state-dir`,
+`--queue-wait-seconds`, `--pool`, `--target-state-dir`, `--pool-state-dir`,
 `--existing-vm-profile`, `--artifacts`, and `--json`.
 
 There is no host/local/direct/auto route. Busy guests queue. A positive executed
 and passed test count, zero adverse outcomes, exit zero, held-process cleanup,
 and guest rollback are required. Stdout, stderr, TRX, and the published-payload
 manifest are hash-bound. Empty or all-skipped selections cannot pass.
+`--target-state-dir` selects the localhost broker pipe, journal, and artifacts.
+`--pool-state-dir` independently selects an existing managed Hyper-V pool
+manifest root; omission preserves the prior behavior and reads the pool from
+the target-host root. The separate root requires explicit VM routing, cannot be
+combined with `--existing-vm-profile`, and is echoed in the receipt and final
+`run.host.targetPoolStateDirectory`.
 
 Use `selftest` only for the Sprout PASS/leak token protocol, never as a wrapper
 that fabricates tokens for another test runner.
@@ -346,7 +352,8 @@ Runs the app's headless token convention (`=> PASS`, `leaked=0`, exit 0).
 | `--expect-token <name>` | Require a named feature token to report `name=ok`; repeatable. |
 | `--timeout <seconds>` | Child self-test timeout; default 120. |
 | `--target auto|vm|sandbox|local|direct` | Execution target; `auto` is default and `direct` bypasses the shared host. |
-| `--target-state-dir <dir>` | Complete target-host state root override. |
+| `--target-state-dir <dir>` | Local target-host pipe, journal, job artifact, and cached-payload root. |
+| `--pool-state-dir <dir>` | Existing managed Hyper-V pool manifest root, independent of the broker root; requires explicit `--target vm` and rejects `--existing-vm-profile`. Omission uses `--target-state-dir`. |
 | `--queue-wait-seconds <seconds>` | Bound target selection, queueing, and execution; default 600. |
 | `--target-tool-dir <dir>` | Self-contained DevTools payload for an isolated target. |
 | `--pool <name>` | Managed Hyper-V pool for auto/vm routing; default `default`. |
@@ -357,7 +364,8 @@ match the complete name: `window-hide=ok` satisfies `--expect-token window-hide`
 A missing, bad, or skipped required token still fails the gate.
 
 Target-routed result metadata includes the requested target, pool, durable job id, child timeout, and total queue-wait
-bound. `--target vm` failures retain those fields and the terminal error without implying that localhost ran.
+bound. Managed-pool jobs also retain `targetPoolStateDirectory`. `--target vm` failures retain those fields and the
+terminal error without implying that localhost ran.
 After submission timeout/cancellation, the client requests job cancellation and waits separately for cleanup.
 `run.host.targetJobTerminal` and `targetJobCleanupVerified` must both be true before run-owned credential/profile
 cleanup. `targetJobId`, `targetJobStatus`, `targetCancellationRequested`, and `targetCleanupState` retain the recovery
