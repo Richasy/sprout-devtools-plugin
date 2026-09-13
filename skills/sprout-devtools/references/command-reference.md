@@ -758,7 +758,33 @@ The recursive `--state-dir <dir>` option selects the complete host root.
 | `host status` | no leaf options |
 | `host selftest <app>` | `--selftest-arg`, `--expect-token`, `--timeout`, `--queue-wait-seconds` |
 | `host cancel <job-id>` | no leaf options |
-| `host stop` | `--force` |
+| `host stop` | `--force`; strict owned-host stop additionally uses `--expected-process-id`, `--expected-process-creation-file-time`, `--expected-server-payload-sha256`, `--require-exit`, and optional `--exit-timeout-seconds` |
+
+`host status` includes the exact server PID, process creation FILETIME, and
+orchestration payload SHA-256. Unqualified `host stop` preserves the existing
+behavior. Automation that owns a private broker root can bind shutdown to that
+observed generation:
+
+```powershell
+sprout-devtools host stop --state-dir <owned-root> `
+  --expected-process-id <pid> `
+  --expected-process-creation-file-time <filetime> `
+  --expected-server-payload-sha256 <sha256> `
+  --require-exit --exit-timeout-seconds 15
+```
+
+Strict identity flags are all-or-none and reject `--force`. The server compares
+them atomically with the idle/admission decision. A replacement process,
+different creation time or payload, or newly admitted job refuses without
+stopping. Strict requests use the contract-v6-only
+`target.stop-strict.v1` method; `target.stop` remains the legacy unqualified
+method, so an older replacement server rejects the unknown strict method before
+performing any stop. Success emits one
+`sprout.devtools.target-host-stop.v1` JSON receipt containing the expected and
+accepted identity, process-executable SHA-256, server generation, stop
+acceptance, and held-handle exit result. Timeout, cancellation, rejection, or
+ambiguous identity returns an errored receipt with `exited:false`; PID absence
+alone is never success.
 
 ### `vm`
 
