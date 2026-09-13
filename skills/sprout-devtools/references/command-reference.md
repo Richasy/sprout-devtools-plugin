@@ -49,6 +49,21 @@ the target-host root. The separate root requires explicit VM routing, cannot be
 combined with `--existing-vm-profile`, and is echoed in the receipt and final
 `run.host.targetPoolStateDirectory`.
 
+For an exact local DevTools payload that must not replace a foreign resident
+target host, use the additive direct-isolation form:
+
+```powershell
+sprout-devtools isolate <tests.exe> --portable-test --backend vm `
+  --devtools <self-contained-tools> --pool default `
+  --filter 'FullyQualifiedName~WindowTests'
+```
+
+It queues on the global per-VM lease and retains the same strict test,
+process-cleanup, service-cleanup, and checkpoint-rollback requirements.
+The requested `--timeout` remains the exact test-process limit; separate
+bounded worker connection, cleanup/report, and host-receive reserves preserve
+the terminal evidence.
+
 Use `selftest` only for the Sprout PASS/leak token protocol, never as a wrapper
 that fabricates tokens for another test runner.
 
@@ -603,7 +618,8 @@ read-only credential-persistence capabilities, and native errors/HRESULTs. No us
 or environment markers are emitted. Missing context never overrides strict app guard failures or permits host
 fallback. See [the context guide](../../../../docs/guide/devtools-selftest-context.md).
 
-`--devtools`, `--devtools-exe`, `--exe`, `--demo-arg`, `--no-selftest`, `--contrast-theme`, `--record`, `--record-app-arg`,
+`--devtools`, `--devtools-exe`, `--exe`, `--demo-arg`, `--no-selftest`, `--portable-test`, `--filter`,
+`--contrast-theme`, `--record`, `--record-app-arg`,
 `--record-duration-ms`, `--record-fps`, `--record-wait-ms`, `--record-allow-static`, `--drive-script`,
 `--drive-app-arg`, `--private-input-manifest`, `--drive-packaged`,
 `--drive-preserve-app-data`, `--drive-wait-ms`,
@@ -611,6 +627,33 @@ fallback. See [the context guide](../../../../docs/guide/devtools-selftest-conte
 `--drive-snapshot-depth`,
 `--backend sandbox|vm`, `--pool`, `--target-state-dir`, `--legacy-vm-env`, `--timeout`, `--vm-wait-seconds`,
 `--packaged`, `--msix`, `--cert`, `--dependency-package`, `--app-fixture`.
+
+`--portable-test` is an exclusive direct managed-guest mode. Pass the exact
+self-contained Microsoft.Testing.Platform executable, `--backend vm`, and a
+self-contained `--devtools` directory. The optional `--filter` is forwarded as
+one argument. `--devtools-exe` accepts one existing file name under that
+canonical directory; rooted paths, separators, traversal, alternate data
+streams, and missing files are rejected, and the selected name is bound to the
+verified tool payload. Sandbox, host, automatic, legacy-environment, selftest,
+capture/record/drive, package, theme, language, and fixture combinations are
+rejected before guest effects. Managed and explicitly authorized existing VMs
+use the ordinary global lease and immutable identity checks.
+
+The authenticated worker invokes the existing `DotNetTestCheck` directly; it
+does not recursively call the public `test` command or contact the resident
+target host. App and tool trees use transient store-only archives for the
+PowerShell Direct transfer. A host-locked file manifest is verified after
+fail-stop cleanup and extraction into canonical `C:\sprout` children.
+Success still requires a non-empty passing TRX, exit zero, locked complete
+payload, held-process exit, guest-service cleanup, and verified rollback.
+A claimed passing guest result is accepted only when its unique check,
+aggregate, assertion set, TRX/payload artifacts, executable/payload hashes,
+process generation, service ID, and lease ID are mutually consistent.
+The `testTimeout` assertion records the exact requested child-process deadline;
+worker and host reserves are separate and cannot silently lengthen that test.
+The outer `payloadDelivery`, `testPayloadDelivery`, and
+`toolPayloadDelivery` assertions bind the guest-verified extracted trees to
+the host-selected manifests.
 
 `--app-fixture <manifest.json>` declares **2..4 independent signed applications** for one authenticated managed-VM
 drive session. Use `--backend vm --no-selftest --drive-no-capture --drive-script <steps>`; no legacy/Sandbox/host
