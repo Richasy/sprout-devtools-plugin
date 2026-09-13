@@ -113,6 +113,11 @@ Credential Manager references. It is mutually exclusive with an explicitly selec
 requires `--target vm`. Busy targets queue, and an executed failure never retries another VM or the host.
 After a submitted selftest times out, inspect `targetJobId`, `targetJobTerminal`, and `targetJobCleanupVerified`.
 Do not remove run-owned credentials or profiles until terminal cleanup is proven; retain them for recovery otherwise.
+For a private broker owned by the current run, capture its status PID,
+`processCreationFileTime`, and payload SHA-256, then use strict `host stop`
+with all three expected values plus `--require-exit`. Trust only the returned
+generation-bound JSON receipt; never stop by state-root reuse, process name,
+or PID disappearance.
 
 For a DevTools brick whose self-contained payload intentionally differs from a
 foreign resident target host, use
