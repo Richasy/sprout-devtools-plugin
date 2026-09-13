@@ -112,6 +112,10 @@ Override it when you need to: `--form exe` (or `--packaged:false` for `drive`/`c
 `--form msix` forces the packaged form. **A packaged launch never silently degrades** — if registration, certificate
 trust or activation fails, the run errors with the reason instead of quietly running the raw `.exe`.
 
+An explicit signed `--msix` keeps the identity declared by its bounded manifest, including its application ID.
+Do not repeat an executable-derived or synthetic name for a differently named package. Recording and the other signed
+consumers reject malformed application manifests and executable mismatches before installation.
+
 For a Sprout app, MSIX is opted into with `<SproutPackageFormat>Msix</SproutPackageFormat>` plus the `Sprout.Packaging`
 and `Microsoft.Windows.SDK.BuildTools` package references; `Package.appxmanifest` is an optional customization on top.
 Packaging happens at publish time, so `run <project>` (which publishes) produces and then uses the package in one step.

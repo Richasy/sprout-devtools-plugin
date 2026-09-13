@@ -425,6 +425,10 @@ Records bounded post-compositor H.264/MP4 evidence.
 | `--drive-snapshot-depth <n>` | Bound post-drive UIA evidence depth. |
 | `--drive-no-capture` | Skip drive screenshot/tree evidence. |
 
+Existing signed inputs always use the name, publisher, version, and application ID from their bounded MSIX manifest,
+including when `--msix` is explicit. Synthetic identity options do not rename those bytes. Invalid application
+manifests or a declared executable that differs from the requested app are rejected before installation.
+
 ### `gate <app>`
 
 Captures a frame sequence while injecting a real touch gesture. Run only in an interactive isolated guest.
