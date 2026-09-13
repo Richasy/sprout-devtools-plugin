@@ -103,6 +103,12 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 - **DON'T** call `host stop` as cleanup against the default shared target host — another worktree may own active work.
   Ordinary stop refuses while busy; only stop a private state root you created, or use `--force` as an intentional
   shared-work cancellation.
+- **DON'T** stop or replace a foreign resident target host merely to validate
+  locally changed DevTools bytes. **DO** use
+  `isolate <tests.exe> --portable-test --backend vm --devtools <local-tool-dir>`;
+  it bypasses only the controller while retaining the authenticated guest
+  worker, global VM lease, strict TRX/process checks, service cleanup, and
+  rollback.
 - **DON'T** infer the live guest resolution from host VM metadata. A basic session can still be 1024x768. **DO** query
   and, when needed, change it through the in-guest `drive-shell` `display` operation before resizing a large app.
 - **DON'T** call a resize successful merely because the request returned. `resizeClient` must be `ok:true` and its

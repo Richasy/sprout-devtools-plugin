@@ -52,7 +52,7 @@ capture looks wrong.
 | "Click it and check what happened" | `drive <app> --find-name … --invoke --expect-…` (UIA patterns only); add `--capture-target owned-popup` when the result is a separate Flyout/menu HWND | [interaction.md](references/interaction.md) |
 | "Measure an existing app process unattended" | `experiment --pid <pid> --plan <json>` for arbitrary allowlisted UIA actions, `--scroll-automation-id <id>` for an in-memory scroll sweep, or `--metrics-only` for a passive control — prepare one command-owned attached session before warm-up, leave target lifecycle/window ownership with the caller, and sample exact-PID process plus optional PDH GPU/runtime metrics | [command-reference.md](references/command-reference.md) |
 | "Does it still pass its own checks?" | `selftest <app>` — the deterministic token gate | [command-reference.md](references/command-reference.md) |
-| "Run .NET tests without desktop interference" | Publish an MTP test executable with TRX reporting, then `test <tests.exe> --target vm --target-tool-dir <tools>`; non-empty passing tests and verified guest cleanup are required | [command-reference.md](references/command-reference.md) |
+| "Run .NET tests without desktop interference" | Publish an MTP test executable with TRX reporting. Use `test <tests.exe> --target vm --target-tool-dir <tools>` through a compatible target host, or `isolate <tests.exe> --portable-test --backend vm --devtools <tools>` for an exact local tool build; both require non-empty passing tests and verified guest cleanup | [command-reference.md](references/command-reference.md) |
 | "My app is MSIX — run it that way" | Nothing extra: `run` / `deploy` / `drive` / `capture` detect it and launch under package identity | [command-reference.md](references/command-reference.md) |
 | "Run concurrent worktrees without desktop conflicts" | `selftest <app>` uses the shared target host; when that broker must be worktree-owned, combine a private `--target-state-dir` with the existing pool's `--pool-state-dir` | [command-reference.md](references/command-reference.md) |
 | "Use an existing Hyper-V VM from another provisioner" | Supply `--existing-vm-profile` to explicit VM `selftest`, `isolate`, or `drive-shell`; bind VM/checkpoint IDs and credential references without adopting the VM | [command-reference.md](references/command-reference.md) |
@@ -113,6 +113,17 @@ Credential Manager references. It is mutually exclusive with an explicitly selec
 requires `--target vm`. Busy targets queue, and an executed failure never retries another VM or the host.
 After a submitted selftest times out, inspect `targetJobId`, `targetJobTerminal`, and `targetJobCleanupVerified`.
 Do not remove run-owned credentials or profiles until terminal cleanup is proven; retain them for recovery otherwise.
+
+For a DevTools brick whose self-contained payload intentionally differs from a
+foreign resident target host, use
+`isolate <tests.exe> --portable-test --backend vm --devtools <local-tool-dir>`.
+It bypasses only that resident controller: the authenticated guest worker,
+global per-VM lease, strict TRX/payload/process checks, service cleanup, and
+checkpoint rollback remain mandatory. Never stop or replace another session's
+host to make a local build compatible. The exact requested test deadline is
+separate from bounded connection, payload-validation, cleanup/report, and host
+reply reserves; a passing result is revalidated against the host-selected
+payload manifest and the authenticated service/lease receipt.
 
 ## Packaged apps run packaged, automatically
 
