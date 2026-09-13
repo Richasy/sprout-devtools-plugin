@@ -766,8 +766,16 @@ Runs a live Hyper-V guest channel. Without `--script` it is an interactive JSONL
 result.
 
 `--devtools`, `--devtools-exe`, `--exe`, `--app-arg`, `--script`, `--service-guid`, `--deadline`,
-`--connect-timeout`, `--call-timeout`, `--find-timeout`, `--no-evidence`, `--vm-wait-seconds`, `--pool`,
+`--connect-timeout`, `--call-timeout`, `--find-timeout`,
+`--capture-backend Auto|WindowsGraphicsCapture|PrintWindow`, `--no-evidence`, `--vm-wait-seconds`, `--pool`,
 `--target-state-dir`, `--existing-vm-profile`.
+
+`--capture-backend` defaults to `Auto` and supplies the default for interactive `capture` requests plus automatic
+failure screenshots. A request may override it with
+`{"op":"capture","args":{"backend":"WindowsGraphicsCapture"}}`. Unknown names fail before capture, and explicit WGC
+never falls back to PrintWindow. A successful response records `result.artifact.requestedBackend` and the actual
+`result.artifact.backend`; the shell writes the announced `savedMetadata` JSON beside `saved` PNG evidence. When a
+capture request itself fails, automatic evidence does not issue a second capture through another backend.
 
 The guest-only global operation
 `{"op":"setContrastTheme","args":{"scheme":"Aquatic"}}` keeps the same app process alive while switching among

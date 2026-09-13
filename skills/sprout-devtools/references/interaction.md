@@ -190,12 +190,15 @@ Use `drive-shell` when each next action depends on the previous response or when
 
 ```powershell
 sprout-devtools drive-shell <publish-dir> --exe <app.exe> `
-    --devtools <self-contained-tool-dir> --pool default --artifacts out
+    --devtools <self-contained-tool-dir> --pool default `
+    --capture-backend WindowsGraphicsCapture --artifacts out
 ```
 
 It reads one JSON request per line and writes one JSON response per line. A successful `find` returns a numeric `ref`
 used by later `act`, `read`, `snapshot`, or subtree operations. `capture` writes a numbered PNG under the artifact
-root and reports its path. Useful global operations:
+root plus a JSON sidecar, and reports the requested and actual backend. The command-level backend defaults to `Auto`;
+override one capture without changing later requests by setting `args.backend`. Unknown values fail before capture,
+and explicit `WindowsGraphicsCapture` never substitutes `PrintWindow`. Useful global operations:
 
 ```json
 { "op": "display" }
@@ -203,6 +206,7 @@ root and reports its path. Useful global operations:
 { "op": "setContrastTheme", "args": { "scheme": "Aquatic" } }
 { "op": "resizeClient", "args": { "width": 1180, "height": 780, "unit": "Epx" } }
 { "op": "capture" }
+{ "op": "capture", "args": { "backend": "PrintWindow" } }
 { "op": "query", "args": { "what": "windows" } }
 { "op": "shutdown" }
 ```

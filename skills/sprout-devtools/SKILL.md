@@ -56,7 +56,7 @@ capture looks wrong.
 | "My app is MSIX — run it that way" | Nothing extra: `run` / `deploy` / `drive` / `capture` detect it and launch under package identity | [command-reference.md](references/command-reference.md) |
 | "Run concurrent worktrees without desktop conflicts" | `selftest <app>` uses the shared target host; provision multiple VMs with `vm pool ensure` | [command-reference.md](references/command-reference.md) |
 | "Use an existing Hyper-V VM from another provisioner" | Supply `--existing-vm-profile` to explicit VM `selftest`, `isolate`, or `drive-shell`; bind VM/checkpoint IDs and credential references without adopting the VM | [command-reference.md](references/command-reference.md) |
-| "Drive a real app adaptively inside a managed VM" | `drive-shell <publish-dir> --devtools <tool-dir> --pool default`; use guest-only `setContrastTheme` for live OS contrast changes | [interaction.md](references/interaction.md) |
+| "Drive a real app adaptively inside a managed VM" | `drive-shell <publish-dir> --devtools <tool-dir> --pool default`; add `--capture-backend WindowsGraphicsCapture` when compositor pixels are required, and use guest-only `setContrastTheme` for live OS contrast changes | [interaction.md](references/interaction.md) |
 | Something failed and you don't know why | [troubleshooting.md](references/troubleshooting.md) | |
 
 Full verb list, global options, result schema and exit codes: [command-reference.md](references/command-reference.md).
@@ -83,6 +83,11 @@ sprout-devtools vm pool ensure default --image <hash> --image-index <index> `
 For an adaptive real-app session, `drive-shell --pool default` leases one member, copies the published app, and exposes
 live JSON operations for UIA, screenshots, display mode, exact window resize, window enumeration, and shutdown. The
 lease is held through artifact collection, exact checkpoint restore, and final power-off.
+Live captures default to `Auto`. Pass `--capture-backend WindowsGraphicsCapture` to require the compositor path for
+all shell-initiated and failure-evidence captures, or override one request with
+`{"op":"capture","args":{"backend":"printWindow"}}`. Explicit WGC failure remains an operation failure and never
+substitutes PrintWindow. Each successful capture reports both `requestedBackend` and actual `backend`, and writes a
+JSON metadata file beside its numbered PNG.
 
 Caller-owned existing VMs use `--existing-vm-profile`, not fabricated pool membership or name-only environment
 variables. The profile pins immutable VM/checkpoint IDs, explicit restore-and-power-off authority, and namespaced

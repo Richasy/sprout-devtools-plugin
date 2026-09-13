@@ -1,7 +1,7 @@
 {
   "name": "sprout-devtools",
   "description": "Look at a running Sprout app and check its UI: take a real screenshot, verify layout/spacing/sizes, confirm a change's visual effect, dump the accessibility tree, or act on a control and assert the result.",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "author": {
     "name": "Richasy"
   },
