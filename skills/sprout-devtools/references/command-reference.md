@@ -27,7 +27,24 @@ Pass an option value beginning with `--` by using `=`: `--app-arg=--some-flag`.
 | Run the framework-dependent DevTools host from source | `dotnet run --project tools\Sprout.DevTools\Sprout.DevTools.csproj -- <verb>` |
 
 `build` creates a RID-specific publish. It is self-contained/AOT only when the project declares that deployment model.
+`--self-contained true|false` explicitly overrides that choice; omitted keeps the project's model.
 Do not assume the resulting `.exe` can run without its matching runtime.
+
+### `test <app>`
+
+Runs a self-contained Microsoft.Testing.Platform executable with TRX reporting
+inside an explicitly selected VM. Required: `--target vm` and
+`--target-tool-dir <self-contained-tools>`. Optional: `--filter`, `--timeout`,
+`--queue-wait-seconds`, `--pool`, `--target-state-dir`,
+`--existing-vm-profile`, `--artifacts`, and `--json`.
+
+There is no host/local/direct/auto route. Busy guests queue. A positive executed
+and passed test count, zero adverse outcomes, exit zero, held-process cleanup,
+and guest rollback are required. Stdout, stderr, TRX, and the published-payload
+manifest are hash-bound. Empty or all-skipped selections cannot pass.
+
+Use `selftest` only for the Sprout PASS/leak token protocol, never as a wrapper
+that fabricates tokens for another test runner.
 
 ## Application checks
 
