@@ -53,9 +53,10 @@ capture looks wrong.
 | "Measure an existing app process unattended" | `experiment --pid <pid> --plan <json>` for arbitrary allowlisted UIA actions, `--scroll-automation-id <id>` for an in-memory scroll sweep, or `--metrics-only` for a passive control — prepare one command-owned attached session before warm-up, leave target lifecycle/window ownership with the caller, and sample exact-PID process plus optional PDH GPU/runtime metrics | [command-reference.md](references/command-reference.md) |
 | "Does it still pass its own checks?" | `selftest <app>` — the deterministic token gate | [command-reference.md](references/command-reference.md) |
 | "Run .NET tests without desktop interference" | Publish an MTP test executable with TRX reporting. Use `test <tests.exe> --target vm --target-tool-dir <tools>` through a compatible target host, or `isolate <tests.exe> --portable-test --backend vm --devtools <tools>` for an exact local tool build; both require non-empty passing tests and verified guest cleanup | [command-reference.md](references/command-reference.md) |
+| "Run a native or console test safely" | `process-test <tests.exe> --target vm --target-tool-dir <tools> --success-token <literal>` — exact whole-line stdout token + exit zero + bounded output + payload/process/VM cleanup proof, with no host fallback | [command-reference.md](references/command-reference.md) |
 | "My app is MSIX — run it that way" | Nothing extra: `run` / `deploy` / `drive` / `capture` detect it and launch under package identity | [command-reference.md](references/command-reference.md) |
 | "Run concurrent worktrees without desktop conflicts" | `selftest <app>` uses the shared target host; when that broker must be worktree-owned, combine a private `--target-state-dir` with the existing pool's `--pool-state-dir` | [command-reference.md](references/command-reference.md) |
-| "Use an existing Hyper-V VM from another provisioner" | Supply `--existing-vm-profile` to explicit VM `selftest`, `isolate`, or `drive-shell`; bind VM/checkpoint IDs and credential references without adopting the VM | [command-reference.md](references/command-reference.md) |
+| "Use an existing Hyper-V VM from another provisioner" | Supply `--existing-vm-profile` to explicit VM `selftest`, `test`, `process-test`, `isolate`, or `drive-shell`; bind VM/checkpoint IDs and credential references without adopting the VM | [command-reference.md](references/command-reference.md) |
 | "Drive a real app adaptively inside a managed VM" | `drive-shell <publish-dir> --devtools <tool-dir> --pool default`; add `--capture-backend WindowsGraphicsCapture` when compositor pixels are required, and use guest-only `setContrastTheme` for live OS contrast changes | [interaction.md](references/interaction.md) |
 | Something failed and you don't know why | [troubleshooting.md](references/troubleshooting.md) | |
 
@@ -89,6 +90,24 @@ an older host or unsupported backend fails before VM execution. Global per-VM
 leases, immutable VM/checkpoint validation, cancellation, service cleanup, and
 rollback remain unchanged. Omit `--pool-state-dir` for the compatible
 single-root behavior.
+
+Native and other console tests use the same explicit managed-target route:
+
+```powershell
+sprout-devtools process-test <tests.exe> --target vm --pool default `
+  --target-state-dir <worktree-broker-state> `
+  --pool-state-dir <existing-pool-state> `
+  --target-tool-dir <exact-self-contained-tools> `
+  --success-token NATIVE-CONSOLE-TESTS-PASSED `
+  --test-arg=--mode --test-arg strict
+```
+
+The token is a bounded literal whole line, not a regex or substring. Exactly
+one stdout match, no stderr match, exit zero, bounded output, the locked
+payload, retained PID/creation-FILETIME/image identity, target-service cleanup,
+and VM rollback are all required. A token printed before a crash or hang still
+fails. This command has no auto, Sandbox, local, direct, or host fallback and
+does not weaken `selftest` or Microsoft.Testing.Platform `test`.
 
 Create a managed pool from official or licensed Windows media whose SHA-256 you already trust:
 

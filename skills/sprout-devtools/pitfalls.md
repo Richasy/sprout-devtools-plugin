@@ -109,6 +109,23 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
   it bypasses only the controller while retaining the authenticated guest
   worker, global VM lease, strict TRX/process checks, service cleanup, and
   rollback.
+- **DON'T** wrap a native executable in a script that fabricates
+  `selftest: leaked=0 ... => PASS`, and **DON'T** run a crash-capable native
+  test on the developer host. **DO** use `process-test --target vm` with one
+  bounded literal whole-line `--success-token`. Exit zero, exactly one stdout
+  match, no stderr match, bounded output, payload identity, retained-process
+  exit, service cleanup, and rollback must all pass.
+- **DON'T** treat a success token printed before a crash, nonzero exit, hang,
+  cancellation, duplicate token, or output truncation as success. **DO** read
+  the separate `exitCode`, `successToken`, `outputBounds`, `processCleanup`,
+  and `processPayload` assertions. A program verdict can fail while cleanup is
+  still correctly proven.
+- **DON'T** use `SetThreadErrorMode` as native-child crash-dialog policy: the
+  child inherits the process error mode. **DO** keep the first-party
+  process-test launch inside the shared owned-launch lock, add
+  `SEM_NOGPFAULTERRORBOX` only across `CreateProcess`, and restore the previous
+  process mode immediately. Never change WER/AeDebug registry or machine
+  policy.
 - **DON'T** infer the live guest resolution from host VM metadata. A basic session can still be 1024x768. **DO** query
   and, when needed, change it through the in-guest `drive-shell` `display` operation before resizing a large app.
 - **DON'T** call a resize successful merely because the request returned. `resizeClient` must be `ok:true` and its

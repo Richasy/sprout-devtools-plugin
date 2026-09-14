@@ -67,6 +67,46 @@ the terminal evidence.
 Use `selftest` only for the Sprout PASS/leak token protocol, never as a wrapper
 that fabricates tokens for another test runner.
 
+### `process-test <app>`
+
+Runs an arbitrary native or console test executable in an explicitly selected
+Hyper-V guest. Required: `--target vm`, `--target-tool-dir
+<self-contained-tools>`, and `--success-token <literal>`. Optional:
+`--test-arg`, `--timeout`, `--queue-wait-seconds`, `--pool`,
+`--target-state-dir`, `--pool-state-dir`, `--existing-vm-profile`,
+`--artifacts`, and `--json`.
+
+There is no auto, Sandbox, local, direct, or host fallback. The token is a
+1–512-character literal matched against complete stdout lines with ordinal
+comparison; it cannot contain leading/trailing whitespace or control
+characters.
+Pass requires exactly one stdout match, zero stderr matches, exit code zero
+before the exact requested timeout, stdout/stderr within 1,048,576 characters
+each, a locked full-payload manifest, retained PID/creation
+FILETIME/executable SHA-256 exit proof, service cleanup, checkpoint restore,
+and final VM power-off. A token printed before a crash, nonzero exit, timeout,
+or cancellation does not pass. `--timeout` is the exact process deadline and
+accepts 1–1800 seconds.
+
+`--test-arg` is repeatable, capped at 64 values / 4096 characters each /
+16384 characters combined, and uses `ProcessStartInfo.ArgumentList` rather
+than shell interpolation. Use `--test-arg=--name` for option-shaped values.
+The managed-pool and existing-VM routing rules match explicit VM `selftest` and
+`test`: a private `--target-state-dir` may use a separate authorized
+`--pool-state-dir`, while `--existing-vm-profile` is mutually exclusive with
+an explicit pool.
+
+The single check id is `process-test`. `failed` means the executable completed
+with a wrong exit/token/output verdict; `errored` means launch, capture,
+payload identity, result I/O, cancellation, cleanup, or rollback could not be
+proven. Hash-bound evidence includes stdout, stderr, and
+`process-test-payload.json`. Never accept the token without the
+`processCleanup` and target cleanup receipts. Raw guest schema and every
+run/check/step/assertion status must be present string values; missing, null,
+numeric, or unknown values fail before typed deserialization. The guest run
+ID, artifact root, completed job ID/status, and result path must bind to the
+exact inner job receipt.
+
 ## Application checks
 
 ### `doctor`
@@ -760,8 +800,9 @@ The recursive `--state-dir <dir>` option selects the complete host root.
 | `host cancel <job-id>` | no leaf options |
 | `host stop` | `--force`; strict owned-host stop additionally uses `--expected-process-id`, `--expected-process-creation-file-time`, `--expected-server-payload-sha256`, `--require-exit`, and optional `--exit-timeout-seconds` |
 
-`host status` includes the exact server PID, process creation FILETIME, and
-orchestration payload SHA-256. Unqualified `host stop` preserves the existing
+`host status` includes the exact server PID, process creation FILETIME,
+orchestration payload SHA-256, contract version, and the `processTest`
+capability used before VM submission. Unqualified `host stop` preserves the existing
 behavior. Automation that owns a private broker root can bind shutdown to that
 observed generation:
 
@@ -776,7 +817,7 @@ sprout-devtools host stop --state-dir <owned-root> `
 Strict identity flags are all-or-none and reject `--force`. The server compares
 them atomically with the idle/admission decision. A replacement process,
 different creation time or payload, or newly admitted job refuses without
-stopping. Strict requests use the contract-v6-only
+stopping. Strict requests use the v6+ strict-stop
 `target.stop-strict.v1` method; `target.stop` remains the legacy unqualified
 method, so an older replacement server rejects the unknown strict method before
 performing any stop. Success emits one
@@ -920,6 +961,7 @@ from the checks that happened to run.
 | Evidence | Deterministic gate? |
 |---|---|
 | `selftest` token | Yes |
+| `process-test` exact token + exit/cleanup receipts | Yes |
 | UIA `--expect-*` assertion | Yes |
 | complete/valid `inspect snapshot` data | Yes |
 | screenshot or `recording.mp4` | No; post-compositor triage evidence |
