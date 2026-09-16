@@ -1,5 +1,9 @@
 # Pitfalls — sprout-devtools
 
+- **DO** fingerprint portable payloads in ordinal, forward-slash relative-path order on both host and guest.
+  **DON'T** sort native absolute paths first: nested Windows payloads can then disagree with the verified delivery
+  manifest despite identical file bytes.
+
 Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real time.
 
 ## Safety
@@ -126,6 +130,10 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
   `SEM_NOGPFAULTERRORBOX` only across `CreateProcess`, and restore the previous
   process mode immediately. Never change WER/AeDebug registry or machine
   policy.
+- **DON'T** treat a missing or failed VM as permission to run MTP tests on the
+  current machine. **DO** use `test --target host --allow-host` only after the
+  caller explicitly authorizes that exact host execution; omit either option
+  and the command must fail before launch.
 - **DON'T** infer the live guest resolution from host VM metadata. A basic session can still be 1024x768. **DO** query
   and, when needed, change it through the in-guest `drive-shell` `display` operation before resizing a large app.
 - **DON'T** call a resize successful merely because the request returned. `resizeClient` must be `ok:true` and its

@@ -52,7 +52,7 @@ capture looks wrong.
 | "Click it and check what happened" | `drive <app> --find-name … --invoke --expect-…` (UIA patterns only); add `--capture-target owned-popup` when the result is a separate Flyout/menu HWND | [interaction.md](references/interaction.md) |
 | "Measure an existing app process unattended" | `experiment --pid <pid> --plan <json>` for arbitrary allowlisted UIA actions, `--scroll-automation-id <id>` for an in-memory scroll sweep, or `--metrics-only` for a passive control — prepare one command-owned attached session before warm-up, leave target lifecycle/window ownership with the caller, and sample exact-PID process plus optional PDH GPU/runtime metrics | [command-reference.md](references/command-reference.md) |
 | "Does it still pass its own checks?" | `selftest <app>` — the deterministic token gate | [command-reference.md](references/command-reference.md) |
-| "Run .NET tests without desktop interference" | Publish an MTP test executable with TRX reporting. Use `test <tests.exe> --target vm --target-tool-dir <tools>` through a compatible target host, or `isolate <tests.exe> --portable-test --backend vm --devtools <tools>` for an exact local tool build; both require non-empty passing tests and verified guest cleanup | [command-reference.md](references/command-reference.md) |
+| "Run .NET tests on an approved target" | Publish an MTP test executable with TRX reporting. Prefer `test <tests.exe> --target vm --target-tool-dir <tools>` or exact-tool `isolate`; when host execution is separately authorized, use `test <tests.exe> --target host --allow-host`. Every route requires non-empty passing tests and exact-process cleanup; there is no fallback | [command-reference.md](references/command-reference.md) |
 | "Run a native or console test safely" | `process-test <tests.exe> --target vm --target-tool-dir <tools> --success-token <literal>` — exact whole-line stdout token + exit zero + bounded output + payload/process/VM cleanup proof, with no host fallback | [command-reference.md](references/command-reference.md) |
 | "My app is MSIX — run it that way" | Nothing extra: `run` / `deploy` / `drive` / `capture` detect it and launch under package identity | [command-reference.md](references/command-reference.md) |
 | "Run concurrent worktrees without desktop conflicts" | `selftest <app>` uses the shared target host; when that broker must be worktree-owned, combine a private `--target-state-dir` with the existing pool's `--pool-state-dir` | [command-reference.md](references/command-reference.md) |
@@ -82,6 +82,19 @@ sprout-devtools test <tests.exe> --target vm --pool default `
   --pool-state-dir <existing-pool-state> `
   --target-tool-dir <exact-self-contained-tools>
 ```
+
+If the current machine is explicitly approved for the test payload, select it
+with both authority-bearing options:
+
+```powershell
+sprout-devtools test <tests.exe> --target host --allow-host `
+  --timeout 120 --artifacts <host-test-artifacts> --json
+```
+
+This is a direct first-party MTP/TRX run with locked payload identity, the same
+bounded observed-process runner, and retained PID/creation-FILETIME/image exit
+proof. It rejects VM routing options and never activates because VM selection
+failed.
 
 The first root owns the secure pipe, host lock, journal, and job artifacts. The
 second is read only as the selected pool manifest/payload/credential-reference

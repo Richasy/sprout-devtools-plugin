@@ -33,15 +33,21 @@ Do not assume the resulting `.exe` can run without its matching runtime.
 ### `test <app>`
 
 Runs a self-contained Microsoft.Testing.Platform executable with TRX reporting
-inside an explicitly selected VM. Required: `--target vm` and
-`--target-tool-dir <self-contained-tools>`. Optional: `--filter`, `--timeout`,
-`--queue-wait-seconds`, `--pool`, `--target-state-dir`, `--pool-state-dir`,
-`--existing-vm-profile`, `--artifacts`, and `--json`.
+on an explicit VM or explicitly authorized current host. VM execution requires
+`--target vm` and `--target-tool-dir <self-contained-tools>`. Host execution
+requires both `--target host` and `--allow-host`.
 
-There is no host/local/direct/auto route. Busy guests queue. A positive executed
-and passed test count, zero adverse outcomes, exit zero, held-process cleanup,
-and guest rollback are required. Stdout, stderr, TRX, and the published-payload
-manifest are hash-bound. Empty or all-skipped selections cannot pass.
+Optional options shared by both routes are `--filter`, `--timeout`,
+`--artifacts`, and `--json`. VM-only options are `--queue-wait-seconds`,
+`--pool`, `--target-state-dir`, `--pool-state-dir`,
+`--existing-vm-profile`, and `--target-tool-dir`; they are rejected with
+`--target host`.
+
+There is no local/direct/auto route and no fallback between host and VM. A
+positive executed and passed test count, zero adverse outcomes, exit zero, and
+held-process cleanup are required. VM execution additionally requires guest
+rollback. Stdout, stderr, TRX, and the published-payload manifest are
+hash-bound. Empty or all-skipped selections cannot pass.
 `--target-state-dir` selects the localhost broker pipe, journal, and artifacts.
 `--pool-state-dir` independently selects an existing managed Hyper-V pool
 manifest root; omission preserves the prior behavior and reads the pool from
@@ -66,6 +72,13 @@ the terminal evidence.
 
 Use `selftest` only for the Sprout PASS/leak token protocol, never as a wrapper
 that fabricates tokens for another test runner.
+
+The host form invokes the same `DotNetTestCheck` through DevTools without a
+target-host broker. The complete payload remains locked, the requested timeout
+is the child-process deadline, and the result retains PID, creation FILETIME,
+executable SHA-256, termination reason, and verified exit. Tests may create
+windows on the current interactive desktop; `test` itself performs no UI input
+or package lifecycle operations.
 
 ### `process-test <app>`
 
