@@ -275,7 +275,7 @@ deadlines from the boundary; the action fails if it has not completed when the w
 its own `find`; state
 does not carry between actions. Allowed operations are `find`, `findWithin`, `invoke`, `toggle`, `setValue`,
 `setRangeValue`, `expand`, `collapse`, `select`, `showContextMenu`, `scroll`, `setScrollPercent`, every `expect*`,
-`waitUntilEnabled`, and `wait`. Snapshot, synthetic input, focus changes, drag, and resize in performance actions are rejected before
+`waitUntilEnabled`, `waitUntilToggle`, and `wait`. Snapshot, synthetic input, focus changes, drag, and resize in performance actions are rejected before
 process or UI Automation access. The prepared client and root remain command-owned and are reused across all actions;
 `DriveExecutor.Run` still resets the logical current element for each action. Every action refreshes the UIA transaction
 deadline, cancellation, and pinned process/window checks. A replaced main HWND reconnects only after the same-PID guard,

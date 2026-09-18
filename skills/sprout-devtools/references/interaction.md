@@ -131,6 +131,12 @@ subtree as evidence). `snapshot` captures the drive root at that exact step and 
 `uia-snapshot-step-<one-based-step>.json`; it remains available when `--no-capture` disables the automatic final
 screenshot/tree/snapshot bundle.
 
+For an asynchronous toggle, use `{"op":"waitUntilToggle","state":"On"}` after `toggle` (also accepts `Off` and
+`Indeterminate`). **DO** await the actual Toggle state, bounded by `--find-timeout-ms` and the enclosing deadline.
+**DON'T** replace that observation with a fixed sleep or an enabled-state wait on a control that stays enabled.
+Timeout stops the script with a failed assertion containing the last observed state; cancellation and provider errors
+remain failures. `expectToggle` still performs an immediate assertion.
+
 ## Closing the owned main window without synthetic input
 
 Native caption Close is not necessarily a useful UIA element. **DO** request normal cancelable `WM_CLOSE` through
