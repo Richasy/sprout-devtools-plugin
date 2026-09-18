@@ -708,17 +708,22 @@ The outer `payloadDelivery`, `testPayloadDelivery`, and
 `toolPayloadDelivery` assertions bind the guest-verified extracted trees to
 the host-selected manifests.
 
-`--app-fixture <manifest.json>` declares **2..4 independent signed applications** for one authenticated managed-VM
+`--app-fixture <manifest.json>` declares **1..4 signed application roles** for one authenticated managed-VM
 drive session. Use `--backend vm --no-selftest --drive-no-capture --drive-script <steps>`; no legacy/Sandbox/host
 fallback, other launch/package mode, private-input manifest, or implicit settle delay. The manifest has
 `schema: "sprout.devtools.app-fixture.v1"`, `primary: "<role>"`, and `apps[]` entries with `role`, relative `msix`,
-relative `certificate`, exact `aumid`, and optional `arguments`. Roles are unique bounded lowercase names and must
+relative `certificate`, exact `aumid`, optional `arguments`, and optional relative `upgradeMsix`. Roles are unique bounded lowercase names and must
 have different real package identities. Inputs and script are hash-bound into the authenticated plan before execution.
-Each lifecycle step accepts only `op` and `role`: `installApp`, `startApp`, `selectApp`, `stopApp`, `uninstallApp`.
+Each lifecycle step accepts only `op` and `role`: `installApp`, `startApp`, `selectApp`, `stopApp`, `uninstallApp`, `upgradeApp`.
 Install the primary first; late secondary installation while the primary runs is supported. `startApp` selects the
 new owned generation, `selectApp` preserves other processes, and every lifecycle boundary clears the found element
 and releases held input. Use a new `find` before the next element action. Each role installs once and may start at
 most 16 generations. A secondary is an application role, never a framework dependency.
+`upgradeApp` requires the role's owned process to be stopped and a declared successor with the same package,
+application, executable relative path, architecture and signer, but a strictly newer version. It performs no package
+uninstall between versions. A new `startApp` binds the successor's image and process generation. Both artifacts are
+hash-bound before execution; foreign or indeterminate ownership fails closed instead of deleting a guessed package.
+Native `closeWindow` / `waitForWindowState` bind the role generation's original main window, not a reconnected popup.
 Explicit `snapshot` works; recording and `findDesktop` / `snapshotDesktop` remain outside this narrow route.
 Desktop steps fail preflight before guest launch or package preparation, regardless of an ambient guest capability.
 Role queries keep their owned-PID scope. Native IME uses existing guest-only key operations and the authorized
