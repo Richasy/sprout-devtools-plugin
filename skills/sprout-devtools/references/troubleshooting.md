@@ -30,6 +30,11 @@ First identify which executable failed:
 
 If several .NET installations exist, point `DOTNET_ROOT` at the one carrying .NET 10.
 
+If a Windows 10 guest reports `0x80131506` or says that Windows does not fully support CET before the target service
+connects, the delivered DevTools payload is stale or was built with an override that bypassed the canonical project.
+Rebuild the self-contained CLI from `tools\Sprout.DevTools\Sprout.DevTools.csproj`; its apphost deliberately omits the
+CET marker for the supported build 19041 floor. Do not disable CET on the target application as a tooling workaround.
+
 ## `inspect list` returns no targets
 
 **First, give it a moment.** The endpoint is published a little after process start — an immediate call returns

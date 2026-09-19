@@ -37,6 +37,10 @@ verbs still require the host capabilities listed in [command-reference.md](refer
 with `dotnet tool update -g Sprout.DevTools --prerelease`. If `sprout-devtools` is not found after installing, the shim
 directory (`%USERPROFILE%\.dotnet\tools`) is not on PATH for this shell; open a new shell or prepend it.
 
+The self-contained payload delivered to managed guests keeps the CLI apphost compatible with the supported Windows 10
+build 19041 floor by opting that apphost out of CET compatibility. Do not copy that tool-specific setting into a target
+application; applications retain their own CET policy.
+
 `doctor` reports the host (OS build, DPI awareness, Developer Mode, isolation) and is the right first move whenever a
 capture looks wrong.
 
