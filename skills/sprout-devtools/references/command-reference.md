@@ -855,6 +855,7 @@ The recursive `--state-dir <dir>` option selects image/pool/provisioning state.
 | `vm pool ensure <name>` | `--image`, `--image-index`, `--members`, `--devtools`, `--guest-user`, `--checkpoint`, `--processors`, `--startup-memory-gb`, `--maximum-memory-gb`, `--disk-size-gb`, `--activation none|productKey`, `--timeout-minutes`, `--plan-only` |
 | `vm pool status <name>` | `--public` emits nonsecret routing/member/checkpoint identity plus `fingerprintSha256` |
 | `vm pool repair <name>` | `--devtools <current-tool-dir>`, `--wait-seconds 0..600`, `--timeout-minutes`, `--plan-only` |
+| `vm pool remove <name>` | required `--confirm`; `--wait-seconds 0..600`, `--timeout-minutes`, `--plan-only` |
 | `vm diagnose <pool>` | `--member <id>`; bounded read-only typed checks, best consumed with `--json` |
 | `vm quarantine explain <pool>` | required `--member <id>` |
 | `vm quarantine recover <pool>` | required `--member <id>`, `--wait-seconds 0..600` |
