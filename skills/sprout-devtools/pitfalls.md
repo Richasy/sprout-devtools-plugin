@@ -76,6 +76,9 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 
 ## Running apps
 
+- **DO** publish the guest CLI from the canonical `Sprout.DevTools.csproj`, whose apphost omits the CET marker for the
+  supported Windows 10 floor. **DON'T** treat a pre-managed-startup `0x80131506` as an hvsocket or target-app failure,
+  and don't copy the CLI's CET policy into the app under test.
 - **DON'T** expect `debug` to leave the app running — it launches, captures, and exits. **DO** use
   `drive --keep-open` (or the matching `capture` / `record` / `gate` option) when you need a resident process to
   `inspect snapshot`. Use `deploy` for resident files/package registration; only its reusable loose-package
