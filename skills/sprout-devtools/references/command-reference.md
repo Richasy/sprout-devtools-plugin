@@ -586,7 +586,7 @@ depth/node evidence caps:
 
 **Assertions**
 
-`--expect-toggle`, `--expect-value`, `--expect-range-value`, `--expect-enabled`,
+`--expect-toggle`, `--expect-value`, `--expect-help-text`, `--expect-range-value`, `--expect-enabled`,
 `--expect-expand-collapse`, `--expect-selected`, `--expect-scroll-horizontal`, `--expect-scroll-vertical`,
 `--expect-text`, `--expect-selected-text`.
 
@@ -611,12 +611,18 @@ self-contained, or NativeAOT.
 | `--dotnet <path>` | Explicit dotnet executable; otherwise resolved from the running/pinned runtime. |
 | `--timeout-ms <n>` | Publish timeout; default 600000. |
 
-### `produce <publishDir>`
+### `produce <publishDir|original.msix>`
 
 Reuses the app's package when present or produces a synthetic MSIX.
 
 `--exe`, `--identity-name`, `--display-name`, `--publisher`, `--version`, `--no-sign`,
-`--synthetic-msix`, `--timeout-ms`.
+`--synthetic-msix`, `--sign-existing-msix`, `--timeout-ms`.
+
+`--sign-existing-msix` explicitly test-signs an unchanged copy of an original unsigned MSIX, including an unambiguous
+app-owned package in a publish directory. It never repacks or changes the manifest/payload. The original is held and
+hashed before/after, every ordinary archive entry is verified unchanged, and the signed hash/public certificate/
+thumbprint/payload receipt are reported. Signed input, synthetic/no-sign flags, identity overrides, and a direct-file
+executable override fail. A direct MSIX without this flag is not signing authority; ordinary publish reuse is unchanged.
 
 ### `run <app|publishDir|project>`
 
@@ -626,7 +632,7 @@ Builds when the input is a project, then runs self-test/capture/package/parity c
 `--install register|signed`, `--msix`, `--cert`, `--timeout`, `--wait-ms`, `--settle-ms`, `--no-selftest`,
 `--from-source`, `--configuration`/`-c`, `--runtime`/`-r`, `--dotnet`, `--build-timeout-ms`.
 
-### `deploy <app|publishDir|project>`
+### `deploy <app|publishDir|project|signed.msix>`
 
 Leaves files or package registration resident. Its ordinary verification launch exits; a reusable Developer-Mode
 loose package may explicitly retain the exact launched process with `--keep-open`.
@@ -634,7 +640,18 @@ loose package may explicitly retain the exact launched process with `--keep-open
 `--form auto|exe|msix|both`, `--from-source`, `--configuration`/`-c`, `--runtime`/`-r`, `--dotnet`,
 `--build-timeout-ms`, `--deploy-dir`, `--package-dir`, `--exe`, `--identity-name`, `--display-name`, `--publisher`,
 `--version`, `--synthetic-msix`, `--app-arg`, `--no-launch`, `--keep-open`, `--wait-ms`, `--settle-ms`,
-`--timeout-ms`.
+`--timeout-ms`, `--allow-package-update`.
+
+Direct signed `.msix` input preserves its baked identity and requires `--no-launch`. Existing same-name packages are
+refused by default. `--allow-package-update --no-launch` explicitly admits only a strictly newer, exact single
+current-user signed registration with matching publisher/family/architecture/resourceId, including production/Store
+packages. The same opt-in applies to an app-owned signed MSIX in a publish directory. It rejects loose/synthetic,
+mixed-form, launch, and identity-override options; direct files also reject build/executable overrides. Immutable
+inputs and package/certificate leases span admission and recovery, active/ambiguous package processes are refused,
+and the subprocess rechecks the exact prior tuple before effects. No uninstall, data deletion, downgrade, forced
+shutdown, or app launch occurs. Exact full name/version/signed state and installed signature are verified, and trust
+stays resident. Failed or uncertain installs retain packages/trust; only proven unused session-added trust may be
+removed after positively unchanged state. Read `resident-signed-package.json` and the recovery assertion.
 
 For a build-produced loose AppX layout, `--package-dir <stable-dir>` selects the resident layout used across repeated
 same-version updates. The source and resident directories must be separate. The update holds the package identity
@@ -643,7 +660,7 @@ new files before swapping the stable layout, and never uninstalls the prior pack
 re-register the exact previous layout or remove only a proven newly created development registration; incomplete
 recovery reports retained paths. `--keep-open` leaves only this command's PID/generation/package/image-verified
 AUMID-launched process running and records its executable SHA-256; `--no-launch` and `--keep-open` are mutually
-exclusive. Both options are rejected for signed MSIX deployment. Omit `--form` for a real loose layout;
+exclusive. `--package-dir` and `--keep-open` are rejected for signed MSIX deployment. Omit `--form` for a real loose layout;
 `--form msix` requests the synthetic package route. See
 [`devtools-package-updates.md`](../../../../docs/guide/devtools-package-updates.md).
 
@@ -902,8 +919,9 @@ managed-pool-only.
 Runs a live Hyper-V guest channel. Without `--script` it is an interactive JSONL REPL; script mode writes a check
 result.
 
-`--devtools`, `--devtools-exe`, `--exe`, `--app-arg`, `--script`, `--service-guid`, `--deadline`,
-`--connect-timeout`, `--call-timeout`, `--find-timeout`,
+`--devtools`, `--devtools-exe`, `--exe`, `--packaged`, `--data`, `--collect-data`, `--dependency-package`,
+`--app-arg`, `--script`, `--service-guid`, `--deadline`,
+`--connect-timeout`, `--call-timeout`, `--find-timeout`, `--snapshot-depth`,
 `--capture-backend Auto|WindowsGraphicsCapture|PrintWindow`, `--no-evidence`, `--vm-wait-seconds`, `--pool`,
 `--target-state-dir`, `--existing-vm-profile`.
 
@@ -913,6 +931,63 @@ failure screenshots. A request may override it with
 never falls back to PrintWindow. A successful response records `result.artifact.requestedBackend` and the actual
 `result.artifact.backend`; the shell writes the announced `savedMetadata` JSON beside `saved` PNG evidence. When a
 capture request itself fails, automatic evidence does not issue a second capture through another backend.
+
+`--packaged` requires a build-produced loose layout with its real `AppxManifest.xml`. The authenticated guest registers
+that layout, launches its real AUMID, follows same-process main-window replacement, and removes only the transient
+development registration during teardown. The interactive app/agent runs at the console user's limited token; VM
+restore, delivery, collection, and teardown remain host-authorized operations.
+
+`--data <directory>` copies one non-sensitive task fixture to writable `C:\sprout\data`, outside the app/package
+layout. The fixture is never registered as package content. By default it is never collected back into host evidence.
+Use this for mutable acceptance databases and content; do not place them under the loose package layout. Omission
+preserves the existing three-folder app/devtools/work delivery. Equal or ancestor/descendant overlap with the app,
+DevTools, or artifacts directory fails before artifacts are created or a VM is touched.
+
+`--collect-data` is an explicit privacy-sensitive opt-in and requires `--data`. After the exact app process exits,
+the guest copies only `C:\sprout\data` to `guest-live\collected-data`, rejects reparse points and more than 10,000
+files/directories or 1 GiB, and writes `collected-data-manifest.json` with every relative path, length and SHA-256.
+Never use it for credentials or real user data; it exists for an authorized non-sensitive task fixture that must be
+fed to a second isolated run for restart persistence. Hyper-V copy-out independently validates every existing guest
+path ancestor, inventories the whole source within the same 10,000-file / 10,000-directory / 1 GiB bounds, and streams
+4 MiB chunks whose cumulative budget is checked before each host write; every staged file must match the guest
+inventory hash before evidence can be accepted.
+
+`--dependency-package <signed-framework.msix|appx>` is repeatable (maximum eight / 1 GiB aggregate) and requires
+`--packaged`. The host validates the signed framework archive, identity, architecture, dependency order and SHA-256,
+then delivers it through the verified archive path. The guest revalidates the exact input and fails closed if the same
+framework identity is already registered because that registration cannot be content-bound to the explicit input;
+otherwise it installs the exact package without importing certificate trust and attempts to remove only that
+run-owned registration. If Windows defers framework removal, the receipt says so and the mandatory verified checkpoint
+rollback/power-off remains the cleanup authority; the host is never modified.
+
+All read-only app, DevTools, data and dependency payloads use one hash-manifested archive per folder for Hyper-V
+delivery rather than per-file PowerShell Direct copy. Generated Hyper-V scripts are supplied through standard input;
+Windows PowerShell reads the complete source and creates an in-memory ScriptBlock, so large authenticated manifests do
+not hit command-line length limits. The payload verifier is embedded in that authenticated parent script and likewise
+created as an in-memory ScriptBlock; no executable `.ps1` verifier is staged for another process to replace.
+
+Mandatory teardown authenticates the immutable VM/checkpoint first, then records checkpoint-restore failure without
+skipping an independent force-off and final `Off` verification. Teardown reports success only when restore and
+power-off both succeed; a collection/manifest failure cannot suppress that verdict or target quarantine.
+
+Initial live window discovery uses the authenticated request's absolute startup timeout, validated to `1..180000` ms,
+across registration, activation, and window polling. Cleanup/report reserves are removed from the remaining worker
+lifetime, the host readiness receive adds those reserves, and the connector preserves the classified failure instead
+of replacing it with a generic channel error. If no window appears, the retained process generation reports an exact
+early exit separately from an app that remains alive for the full bound.
+
+In `--script` mode, the high-level `drag` and `dragToEdge` steps resolve physical bounds through guest UIA but perform
+the press/moves/release through the leased VM's `Msvm_SyntheticMouse`. `dragToEdge` supports `fractionX` / `fractionY`,
+signed physical-pixel `sourceOffsetX` / `sourceOffsetY`, nonnegative `beyondEdgePx`, and a target-edge `holdMs`;
+`expectScrollPercentAtLeast` asserts progress without pretending a dynamically growing list has a fixed percent
+denominator. This avoids both the developer desktop and the elevated-agent `CoreDragOperation.StartAsync` rejection.
+It requires an immutable managed or existing-target VM identity, always releases the button in `finally`, reports WMI
+failures verbatim, and never falls back to guest `SendInput`. A hard host timeout starts a separate identity-checked
+emergency button release before the mandatory VM rollback. Raw interactive
+`pointerMove`/`pointerDown`/`pointerUp` operations keep their existing guest-input contract.
+Explicit `snapshot` steps use `--snapshot-depth` (default `8`, range `0..32`); this evidence bound never limits
+full-tree `find` or assertion operations. `findDesktop` and `snapshotDesktop` use a separately connected UIA desktop
+root only inside the authenticated guest capability; ordinary app-root finds remain process-scoped.
 
 The guest-only global operation
 `{"op":"setContrastTheme","args":{"scheme":"Aquatic"}}` keeps the same app process alive while switching among

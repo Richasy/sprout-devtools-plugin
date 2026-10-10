@@ -59,6 +59,7 @@ capture looks wrong.
 | "Run .NET tests on an approved target" | Publish an MTP test executable with TRX reporting. Prefer `test <tests.exe> --target vm --target-tool-dir <tools>` or exact-tool `isolate`; when host execution is separately authorized, use `test <tests.exe> --target host --allow-host`. Every route requires non-empty passing tests and exact-process cleanup; there is no fallback | [command-reference.md](references/command-reference.md) |
 | "Run a native or console test safely" | `process-test <tests.exe> --target vm --target-tool-dir <tools> --success-token <literal>` — exact whole-line stdout token + exit zero + bounded output + payload/process/VM cleanup proof, with no host fallback | [command-reference.md](references/command-reference.md) |
 | "My app is MSIX — run it that way" | Nothing extra: `run` / `deploy` / `drive` / `capture` detect it and launch under package identity | [command-reference.md](references/command-reference.md) |
+| "Test-sign an original MSIX and update its resident identity" | Explicit `produce --sign-existing-msix`, then `deploy --allow-package-update --no-launch`; ordinary produce/deploy never infer that authority | [package updates](../../../docs/guide/devtools-package-updates.md) |
 | "Run concurrent worktrees without desktop conflicts" | `selftest <app>` uses the shared target host; when that broker must be worktree-owned, combine a private `--target-state-dir` with the existing pool's `--pool-state-dir` | [command-reference.md](references/command-reference.md) |
 | "Use an existing Hyper-V VM from another provisioner" | Supply `--existing-vm-profile` to explicit VM `selftest`, `test`, `process-test`, `isolate`, or `drive-shell`; bind VM/checkpoint IDs and credential references without adopting the VM | [command-reference.md](references/command-reference.md) |
 | "Drive a real app adaptively inside a managed VM" | `drive-shell <publish-dir> --devtools <tool-dir> --pool default`; add `--capture-backend WindowsGraphicsCapture` when compositor pixels are required, and use guest-only `setContrastTheme` for live OS contrast changes | [interaction.md](references/interaction.md) |
@@ -214,6 +215,33 @@ previous layout or remove only a proven newly created Development-Mode registrat
 retained recovery paths. `--keep-open` also reports the exact retained process image SHA-256. `--no-launch` performs
 only the update; omit both launch switches for a verification launch that exits. See
 [`docs/guide/devtools-package-updates.md`](../../../docs/guide/devtools-package-updates.md).
+
+### Original MSIX signing and an authorized signed resident update
+
+Ordinary `produce <publishDir>` reuses an existing MSIX byte-for-byte, even when unsigned. Signing that original is a
+separate explicit operation, not a reason to synthesize a replacement manifest:
+
+```powershell
+sprout-devtools produce out\App.msix --sign-existing-msix --artifacts out\signed --json
+sprout-devtools deploy out\signed\signed-package.msix --allow-package-update --no-launch --artifacts out\update --json
+```
+
+Signing holds/hashes the original, signs only its exact copy, and proves every ordinary archive entry unchanged;
+only `AppxSignature.p7x` and `[Content_Types].xml` may change. Read original/signed SHA-256, manifest SHA-256,
+`packagePayloadPreserved`, public `signing.cer`/thumbprint, and `package-payload-sha256.txt`. Already signed input,
+synthetic/no-sign options, and identity overrides fail. No PFX/password is evidence.
+
+The signed update authority must be separately approved, including certificate trust when needed. Direct MSIX input
+and `--allow-package-update` require `--no-launch`; the opt-in also accepts an app-owned signed MSIX in a publish
+directory. It refuses loose/synthetic inputs/options, identity overrides, ambiguous current-user registrations,
+publisher/family/architecture/resourceId mismatch, same-version/downgrade revisions, and active or ambiguous package
+processes. Existing signed production/Store registrations are admitted only through this explicit path. First-party
+package/certificate leases, immutable input verification, subprocess prior-tuple rechecks, and exact installed
+signature verification remain mandatory. Never uninstall, delete app data, or stop a pre-existing process to help it.
+
+Read `resident-signed-package.json` and `residentSignedPackageRecovery` on failure: a possible successor or unknown
+state stays resident, certificate trust is retained unless unused session-added entries can be safely proven and
+removed, and the command still fails. This does not relax transient fixture or reusable loose-package guards.
 
 ## Three things that will mislead you
 

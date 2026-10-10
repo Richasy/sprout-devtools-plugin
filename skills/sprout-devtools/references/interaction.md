@@ -110,6 +110,8 @@ anywhere up its chain reports a failed step rather than silently doing nothing.
 
 A top-level `find` follows the process if it replaces its main window (launcher → workspace). `findWithin` stays
 scoped to the current element.
+Use `--expect-help-text <text>` or `{"op":"expectHelpText","text":"..."}` to assert the exact UIA HelpText property.
+This is the deterministic check for otherwise invisible pointer/keyboard guidance such as drag-to-reorder hints.
 
 ## Scripts
 
@@ -130,6 +132,8 @@ physical px or epx and emit a `window` assertion with DPI evidence) and `snapsho
 subtree as evidence). `snapshot` captures the drive root at that exact step and writes
 `uia-snapshot-step-<one-based-step>.json`; it remains available when `--no-capture` disables the automatic final
 screenshot/tree/snapshot bundle.
+For `drive-shell --script`, raise `--snapshot-depth` when relevant controls sit below the default depth of `8`; the
+bounded snapshot changes evidence only, never the full-tree `find` gate.
 
 For an asynchronous toggle, use `{"op":"waitUntilToggle","state":"On"}` after `toggle` (also accepts `Off` and
 `Indeterminate`). **DO** await the actual Toggle state, bounded by `--find-timeout-ms` and the enclosing deadline.
@@ -165,6 +169,9 @@ visibility flag, not an occlusion assertion. For true close-and-exit, use:
 Both waits use `--find-timeout-ms`, the remaining action deadline, and caller cancellation. They stop at the observed
 condition or fail with the last state, never sleep to guess completion. The exit operation observes the held process
 generation without killing it; it does not prove application flush. Choose `--no-capture` for hidden/closed windows.
+The `processExitCode` field reports the code from that same signalled process handle when available. A crash code,
+missing code, or `processTermination: "terminationRequested"` is not successful application retirement; require
+an explicitly observed zero code as well as the application's own drain evidence.
 
 **DO** retain `--require-cleanup` when cleanup proof is needed. These operations synthesize no input and leave its
 guards unchanged. The separate hash-bound `processCleanup` receipt remains authoritative for final cleanup.
@@ -272,3 +279,10 @@ Read the verdict from `tests[].assertions[]` in `result.json`, not from stdout.
 `--packaged` registers a build-produced loose layout's real `AppxManifest.xml` in Developer Mode, AUMID-launches it,
 and drives that exact packaged process — no admin, no VM. `--install signed --msix <m> --cert <c>` drives the real
 signed install instead. Use these when identity-sensitive startup is the subject; omit for the ordinary executable.
+
+For `drive-shell`, guest OS surfaces such as a folder picker require `findDesktop`/`snapshotDesktop`; those operations
+are wired only to the authenticated isolated desktop root and never fall back to the developer desktop. A dependent
+loose package may name explicit Microsoft-signed framework inputs with repeated `--dependency-package`; no dependency
+is discovered or downloaded implicitly, and an unprovable preexisting registration with the same identity is rejected.
+`--collect-data` is separate, off by default, and may return only an explicitly authorized non-sensitive `--data`
+fixture after the exact app process exits, with a per-file hash manifest.

@@ -76,6 +76,24 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 
 ## Running apps
 
+- **DO** distinguish host-controller Hyper-V authority from guest test execution.
+  **DON'T** require the interactive guest server to be elevated: keep that requirement on the
+  host controller, while validating the guest's exact payload, protocol, and test capability.
+- **DO** collect delivered-tool job output into its separate `collected` directory.
+  **DON'T** merge the returned work tree over host-authored delivery markers or relax overwrite rejection.
+- **DO** use explicit `produce --sign-existing-msix` for an unsigned original and read the entry-level payload receipt.
+  **DON'T** expect ordinary reuse to sign it or substitute a synthetic/repacked manifest. Signing footprints alone may
+  change; all manifest/native/app bytes remain covered. Pinned by
+  `ExistingMsixSignerTests`.
+- **DON'T** accept every PowerShell signature `UnknownError` or reject all of them: Windows PowerShell uses that
+  status for a healthy self-signed package's untrusted root too. **DO** verify the native trust result offline, accepting
+  only success or the specific untrusted-root status before trust mutation. Pinned by
+  `ProjectPackageCertTests`.
+- **DO** obtain signed resident-update/trust authority and pass `deploy --allow-package-update --no-launch`.
+  **DON'T** uninstall, downgrade, force shutdown, or remove certificate trust after an uncertain failure. Existing
+  processes are never owned; a possible successor and its trust remain until state is known. Read the separate
+  recovery evidence, not a success-shaped fallback. Pinned by
+  `ResidentSignedPackageInstallerTests` and `ResidentSignedMsixCommandTests`.
 - **DO** publish the guest CLI from the canonical `Sprout.DevTools.csproj`, whose apphost omits the CET marker for the
   supported Windows 10 floor. **DON'T** treat a pre-managed-startup `0x80131506` as an hvsocket or target-app failure,
   and don't copy the CLI's CET policy into the app under test.
