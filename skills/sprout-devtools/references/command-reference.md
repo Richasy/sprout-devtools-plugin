@@ -841,8 +841,11 @@ The recursive `--state-dir <dir>` option selects the complete host root.
 Relay commands use `--state-dir` for the relay root, defaulting to the user-local `relay` directory rather than the
 ordinary target-host root. Installation needs one Windows UAC approval and verifies a live elevated VM-only worker
 before enabling automatic routing for explicitly selected VM tests. Different workspaces and broker roots retain
-separate worker scopes; reconnecting preserves each scope's jobs. The relay does not route standalone `isolate` or
-interactive `drive-shell`. A different installed payload requires explicit owned-task removal before installation.
+separate worker scopes; reconnecting preserves each scope's jobs. Managed `isolate --backend vm` uses the worker queue
+before any client Hyper-V probe. Queued packaged runs require explicit existing `--msix` and `--cert`; cancellation
+retains artifacts and requires verified VM rollback and service cleanup. Interactive `drive-shell`, caller-owned VM
+profiles, legacy VM configuration, and maintenance remain separate routes. A different installed payload requires
+explicit owned-task removal before installation.
 `host relay install-worker` is an internal elevated installation command, not a public automation contract.
 
 `host status` includes the exact server PID, process creation FILETIME,

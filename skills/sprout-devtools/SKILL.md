@@ -31,14 +31,16 @@ For VM tests submitted by ordinary desktop clients, a self-contained DevTools pa
 elevated relay with `host relay install`. Review its manifest with `host relay install --plan-only` first. Installation
 requires one Windows UAC approval and verifies an ordinary client connection before enabling routing. The current
 user's logon Scheduled Task runs the fixed administrator-protected payload with highest privileges; subsequent
-explicit `selftest --target vm` requests use it without elevating the desktop client.
+explicit `selftest --target vm` and managed `isolate --backend vm` requests use it without elevating the desktop client.
 
 The relay forwards opaque messages to private VM-only workers. A persistent session under the broker state root,
 partitioned by workspace, keeps query/cancel requests with the correct worker after reconnect. Connection sequences
 correlate individual responses. Different workspaces or broker roots receive separate worker scopes. Do not reuse
 another workspace's session descriptor. If submission disconnects, its outcome is unknown; do not automatically
-resubmit. An unavailable configured relay never starts a local fallback. Interactive `drive-shell`, standalone
-`isolate`, and VM maintenance are separate routes. See
+resubmit. An unavailable configured relay never starts a local fallback. Queued packaged isolate requires existing
+explicit `--msix` and `--cert` inputs; do not rely on implicit host package creation. Cancellation retains evidence and
+requires verified rollback and service cleanup. Interactive `drive-shell`, caller-owned VM profiles, legacy VM
+configuration, and VM maintenance are separate routes. See
 [elevated relay](https://github.com/Richasy/Sprout/blob/main/docs/guide/devtools-elevated-relay.md).
 
 ```powershell
