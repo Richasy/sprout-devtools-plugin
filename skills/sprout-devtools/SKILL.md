@@ -37,7 +37,10 @@ The relay forwards opaque messages to private VM-only workers. A persistent sess
 partitioned by workspace, keeps query/cancel requests with the correct worker after reconnect. Connection sequences
 correlate individual responses. Different workspaces or broker roots receive separate worker scopes. Do not reuse
 another workspace's session descriptor. If submission disconnects, its outcome is unknown; do not automatically
-resubmit. An unavailable configured relay never starts a local fallback. Queued packaged isolate requires existing
+resubmit. Before submission, an unavailable installed relay is started through its exact owned Scheduled Task.
+Three failed starts exhaust a shared persistent budget; later clients use the conventional VM route until relay
+readiness is observed, which resets the budget. This route still requires normal Hyper-V permissions and never
+changes the target to Host or Sandbox. An accepted or uncertain submission is never replayed. Queued packaged isolate requires existing
 explicit `--msix` and `--cert` inputs; do not rely on implicit host package creation. Cancellation retains evidence and
 requires verified rollback and service cleanup. Interactive `drive-shell`, caller-owned VM profiles, legacy VM
 configuration, and VM maintenance are separate routes. See
