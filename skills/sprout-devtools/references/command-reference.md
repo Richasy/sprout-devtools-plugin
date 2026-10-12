@@ -13,7 +13,7 @@ The root parser accepts these recursively. A command consumes only the ones that
 | `--json` | Emit machine-readable output where that command supports a JSON form. |
 | `--artifacts <dir>` | Evidence root for application check commands; default `.sprout-devtools/<runId>`. |
 | `--verbose`, `-v` | Diagnostic logging on stderr. |
-| `--relay-state-dir <dir>` | Forward target-host requests through an explicitly configured elevated relay, without local fallback. |
+| `--relay-state-dir <dir>` | Prefer an explicitly configured elevated relay; after three failed startup attempts, use the conventional VM route before submission. |
 
 Pass an option value beginning with `--` by using `=`: `--app-arg=--some-flag`.
 
@@ -846,6 +846,11 @@ before any client Hyper-V probe. Queued packaged runs require explicit existing 
 retains artifacts and requires verified VM rollback and service cleanup. Interactive `drive-shell`, caller-owned VM
 profiles, legacy VM configuration, and maintenance remain separate routes. A different installed payload requires
 explicit owned-task removal before installation.
+Before submission, clients start the exact owned Scheduled Task when the relay is unavailable. Three failed starts
+exhaust a persistent budget shared by clients. Subsequent requests use the conventional VM route with normal
+Hyper-V permissions until relay readiness resets the budget. A submitted or uncertain request is never replayed;
+Host and Sandbox are never fallback targets.
+
 `host relay install-worker` is an internal elevated installation command, not a public automation contract.
 
 `host status` includes the exact server PID, process creation FILETIME,
