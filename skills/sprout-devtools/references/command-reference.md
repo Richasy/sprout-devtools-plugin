@@ -13,6 +13,7 @@ The root parser accepts these recursively. A command consumes only the ones that
 | `--json` | Emit machine-readable output where that command supports a JSON form. |
 | `--artifacts <dir>` | Evidence root for application check commands; default `.sprout-devtools/<runId>`. |
 | `--verbose`, `-v` | Diagnostic logging on stderr. |
+| `--relay-state-dir <dir>` | Forward target-host requests through an explicitly configured elevated relay, without local fallback. |
 
 Pass an option value beginning with `--` by using `=`: `--app-arg=--some-flag`.
 
@@ -829,11 +830,20 @@ The recursive `--state-dir <dir>` option selects the complete host root.
 
 | Command | Options |
 |---|---|
-| `host serve` | `--background` (normally used only by automatic startup) |
+| `host serve` | `--background` (normally used only by automatic startup), `--vm-only` (reject non-VM requests) |
+| `host relay install` | `--plan-only`; install the current self-contained payload and a highest-privilege current-user logon task |
+| `host relay serve` | `--background`; run the elevated opaque message router |
 | `host status` | no leaf options |
 | `host selftest <app>` | `--selftest-arg`, `--expect-token`, `--timeout`, `--queue-wait-seconds` |
 | `host cancel <job-id>` | no leaf options |
 | `host stop` | `--force`; strict owned-host stop additionally uses `--expected-process-id`, `--expected-process-creation-file-time`, `--expected-server-payload-sha256`, `--require-exit`, and optional `--exit-timeout-seconds` |
+
+Relay commands use `--state-dir` for the relay root, defaulting to the user-local `relay` directory rather than the
+ordinary target-host root. Installation needs one Windows UAC approval and verifies a live elevated VM-only worker
+before enabling automatic routing for explicitly selected VM tests. Different workspaces and broker roots retain
+separate worker scopes; reconnecting preserves each scope's jobs. The relay does not route standalone `isolate` or
+interactive `drive-shell`. A different installed payload requires explicit owned-task removal before installation.
+`host relay install-worker` is an internal elevated installation command, not a public automation contract.
 
 `host status` includes the exact server PID, process creation FILETIME,
 orchestration payload SHA-256, contract version, and the `processTest`
@@ -873,9 +883,9 @@ The recursive `--state-dir <dir>` option selects image/pool/provisioning state.
 | `vm pool status <name>` | `--public` emits nonsecret routing/member/checkpoint identity plus `fingerprintSha256` |
 | `vm pool repair <name>` | `--devtools <current-tool-dir>`, `--wait-seconds 0..600`, `--timeout-minutes`, `--plan-only` |
 | `vm pool remove <name>` | required `--confirm`; `--wait-seconds 0..600`, `--timeout-minutes`, `--plan-only` |
-| `vm diagnose <pool>` | `--member <id>`; bounded read-only typed checks, best consumed with `--json` |
+| `vm diagnose <pool>` | `--member <id>`; bounded read-only typed checks, best consumed with `--json`; explicit `--artifacts` retains `vm-diagnostics.json` |
 | `vm quarantine explain <pool>` | required `--member <id>` |
-| `vm quarantine recover <pool>` | required `--member <id>`, `--wait-seconds 0..600` |
+| `vm quarantine recover <pool>` | required `--member <id>`, `--wait-seconds 0..600`; explicit `--artifacts` retains `vm-quarantine-result.json` |
 
 ### Caller-owned existing VM profiles
 
