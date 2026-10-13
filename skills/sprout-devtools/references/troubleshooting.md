@@ -30,6 +30,12 @@ First identify which executable failed:
 
 If several .NET installations exist, point `DOTNET_ROOT` at the one carrying .NET 10.
 
+When a new managed VM boots Windows but its target task exits before a process or channel appears, verify that the
+delivered DevTools directory includes the runtime, including `coreclr.dll`, `hostfxr.dll`, and `hostpolicy.dll`.
+Replace an incomplete or framework-dependent guest delivery with a self-contained publish through first-party
+`vm pool repair --devtools <self-contained-tool-dir>`. Repair reuses verified owned checkpoints; do not delete a
+healthy Windows installation solely because its target agent did not start.
+
 If a Windows 10 guest reports `0x80131506` or says that Windows does not fully support CET before the target service
 connects, the delivered DevTools payload is stale or was built with an override that bypassed the canonical project.
 Rebuild the self-contained CLI from `tools\Sprout.DevTools\Sprout.DevTools.csproj`; its apphost deliberately omits the
