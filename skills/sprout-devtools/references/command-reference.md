@@ -851,6 +851,10 @@ exhaust a persistent budget shared by clients. Subsequent requests use the conve
 Hyper-V permissions until relay readiness resets the budget. A submitted or uncertain request is never replayed;
 Host and Sandbox are never fallback targets.
 
+The installed task runs `Sprout.DevTools.Relay.exe`, a GUI-subsystem apphost published alongside the normal CLI.
+It shares the managed CLI entry point and creates no console on logon or on-demand startup. Installation rejects
+a missing apphost or a console-subsystem replacement; `--background` alone is not a window-hiding mechanism.
+
 `host relay install-worker` is an internal elevated installation command, not a public automation contract.
 
 `host status` includes the exact server PID, process creation FILETIME,
