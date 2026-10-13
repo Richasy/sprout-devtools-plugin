@@ -158,6 +158,13 @@ sprout-devtools vm pool ensure default --image <hash> --image-index <index> `
     --members 2 --devtools <self-contained-tool-dir>
 ```
 
+The guest tool directory must be a complete self-contained Windows publish, including its .NET runtime; the
+framework-dependent global tool installation is not a guest delivery directory. Before provisioning, optional
+`vm image prepare <hash> --extractor <absolute-local-reader.exe>` can extract the trusted ISO with an explicitly
+selected local reader such as 7-Zip. Run extraction unelevated; the immutable hash-verified cache lets later
+provisioning avoid a virtual DVD mount. A reader or extraction failure stops preparation without a download fallback.
+Provisioning and maintenance still require administrator authority; the installed relay forwards VM test jobs.
+
 For an adaptive real-app session, `drive-shell --pool default` leases one member, copies the published app, and exposes
 live JSON operations for UIA, screenshots, display mode, exact window resize, window enumeration, and shutdown. The
 lease is held through artifact collection, exact checkpoint restore, and final power-off.
