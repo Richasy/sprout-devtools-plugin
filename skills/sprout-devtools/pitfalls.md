@@ -8,6 +8,9 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 
 ## Safety
 
+- **DO** use the installed GUI-subsystem relay apphost for unattended startup. **DON'T** schedule the console CLI
+  directly and assume `--background` prevents Windows from opening a console window.
+
 - **DON'T** run a synthetic-input step — `--type-text`, `--click`, `--drag-to-*`, or the script ops `typeText`,
   `keyDown`, `keyUp`, `click`, `pointerMove`, `pointerDown`, `pointerUp`, `drag`, `dragToEdge` — on the developer's own desktop.
   They are `SendInput`, which is **global**: it injects into whatever window is foreground at that instant, not into

@@ -33,6 +33,10 @@ requires one Windows UAC approval and verifies an ordinary client connection bef
 user's logon Scheduled Task runs the fixed administrator-protected payload with highest privileges; subsequent
 explicit `selftest --target vm` and managed `isolate --backend vm` requests use it without elevating the desktop client.
 
+The installed task uses the published `Sprout.DevTools.Relay.exe` GUI-subsystem apphost for the same CLI payload.
+Logon and on-demand startup allocate no console window. Keep that apphost with the complete published payload;
+`--background` alone does not hide a console executable.
+
 The relay forwards opaque messages to private VM-only workers. A persistent session under the broker state root,
 partitioned by workspace, keeps query/cancel requests with the correct worker after reconnect. Connection sequences
 correlate individual responses. Different workspaces or broker roots receive separate worker scopes. Do not reuse
