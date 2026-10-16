@@ -33,6 +33,11 @@ requires one Windows UAC approval and verifies an ordinary client connection bef
 user's logon Scheduled Task runs the fixed administrator-protected payload with highest privileges; subsequent
 explicit `selftest --target vm` and managed `isolate --backend vm` requests use it without elevating the desktop client.
 
+For a new CLI alongside an older installation, use `host relay install --state-dir <new-root> --plan-only`, then
+install with that same explicit root and select it with `--relay-state-dir <new-root>`. Explicit roots own independent
+Scheduled Tasks; the default root keeps its existing task name. DO keep a root bound to one immutable tool payload.
+DON'T stop foreign workers or overwrite an existing root to resolve a CLI/broker payload mismatch.
+
 The installed task uses the published `Sprout.DevTools.Relay.exe` GUI-subsystem apphost for the same CLI payload.
 Logon and on-demand startup allocate no console window. Keep that apphost with the complete published payload;
 `--background` alone does not hide a console executable.
