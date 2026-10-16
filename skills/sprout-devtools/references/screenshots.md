@@ -61,9 +61,17 @@ not overwrite existing final screenshot/metadata files.
 An owned popup is a separate top-level window, not necessarily part of the main-window image. Select it explicitly:
 
 ```powershell
+sprout-devtools capture --pid 2976 --list-windows --json
 sprout-devtools capture --pid 2976 --window-title "Details" --artifacts popup-title
 sprout-devtools capture --pid 2976 --hwnd 0x1234 --artifacts popup-handle
 ```
+
+The inventory is read-only and scoped to the held process generation. It includes hidden windows so visibility can
+be distinguished from existence; capture still requires a visible, positively sized target. Use owner HWNDs to
+distinguish nested tooltips from their parent flyouts when both use the same title. It does not capture pixels or
+change application state, and cannot be combined with a launch argument, capture selector, wait/backend option, or
+`--artifacts`. Entries include physical screen `x`/`y` (which may be negative), physical size, and DPI. Both success and failure are stdout-only `sprout.devtools.window-inventory.v1` JSON, with `success` and
+optional `error`; `--json` is optional for this query.
 
 Use exactly one selector. Titles are exact and case-sensitive; HWNDs accept positive decimal or `0x`-prefixed hex.
 Selection is immediate and restricted to a unique visible, positively sized top-level window of the held process,

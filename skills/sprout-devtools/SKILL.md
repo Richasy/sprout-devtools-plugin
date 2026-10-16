@@ -73,6 +73,8 @@ capture looks wrong.
 |---|---|---|
 | "What does it look like?" / "did my change land visually?" | `debug <project> --from-source` — build Debug, launch, screenshot **and** dump the UIA tree in one shot | [screenshots.md](references/screenshots.md) |
 | "Capture the app exactly where it is now" | `capture --pid <pid>` — attach to the current process/window without launch, activation, foregrounding, input, resize, or termination | [screenshots.md](references/screenshots.md) |
+| "Identify its windows, DPI, and screen coordinates" | `capture --pid <pid> --list-windows --json` — process-generation-bound inventory including negative physical `x/y` coordinates | [screenshots.md](references/screenshots.md) |
+| "Inspect a tooltip in an existing process" | `drive --pid <pid> --script <json> --capture-target owned-popup` — find/hover/wait/read-only assertions; hover activates the target and moves the pointer, while lifecycle remains caller-owned | [interaction.md](references/interaction.md) |
 | "Capture its separate popup/dialog" | `capture --pid <pid> --window-title <exact-title>` or `--hwnd <decimal-or-0x-hex>` — explicitly select one visible owned top-level window without changing default capture or experiment authority | [screenshots.md](references/screenshots.md) |
 | "Is the layout / spacing / size right?" | Launch the app resident, then `inspect snapshot <pid>` and compare each node's `bounds` against its `desiredSize` | [layout-inspection.md](references/layout-inspection.md) |
 | "Is it accessible / what does a screen reader see?" | `debug` and read `debug-uia-tree.txt`, or a `drive` script with a `snapshot` step | [accessibility.md](references/accessibility.md) |

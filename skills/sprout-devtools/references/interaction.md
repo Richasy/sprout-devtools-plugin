@@ -9,6 +9,22 @@ sprout-devtools drive <app> --app-arg=--some-flag `
 `drive` launches the app, finds a control through UI Automation, acts on it, asserts its state, and writes a `drive`
 check with `uia` assertions plus `window.png`, `uia-tree.txt` and `uia-snapshot.json`.
 
+## Inspect an existing process
+
+```powershell
+sprout-devtools drive --pid <pid> --script hover.json --capture-target owned-popup --artifacts out
+```
+
+Attached mode permits find, hover, wait, and read-only assertions. It never launches or terminates the application
+and cannot be combined with app, package, or cleanup options. A hover explicitly activates the target and moves the
+pointer; verify that authority before using it on a shared desktop. The process creation time binds the entire
+inspection and capture, including reconnecting across the target's popup windows.
+
+For a tooltip, find its control, hover it, wait for its show delay, then assert the full help text and capture.
+If its normal auto-hide timer already elapsed, hover another control before re-entering the target. Use
+`capture --pid <pid> --list-windows --json` to select a specific tooltip HWND when several popups are open.
+Attached inspection defaults to a 10-second interaction deadline; `--timeout-ms` accepts at most 60 seconds.
+
 ## Capturing a separate popup window
 
 A windowed Sprout Flyout, menu, or tooltip is a separate owned HWND. The normal post-action screenshot remains
