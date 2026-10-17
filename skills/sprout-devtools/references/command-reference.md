@@ -833,10 +833,10 @@ The recursive `--state-dir <dir>` option selects the complete host root.
 | `host serve` | `--background` (normally used only by automatic startup), `--vm-only` (reject non-VM requests) |
 | `host relay install` | `--plan-only`; install the current self-contained payload and a highest-privilege current-user logon task |
 | `host relay serve` | `--background`; run the elevated opaque message router |
-| `host status` | no leaf options |
+| `host status` | `--direct` to contact only the existing localhost host in `--state-dir`, bypassing relay routing |
 | `host selftest <app>` | `--selftest-arg`, `--expect-token`, `--timeout`, `--queue-wait-seconds` |
 | `host cancel <job-id>` | no leaf options |
-| `host stop` | `--force`; strict owned-host stop additionally uses `--expected-process-id`, `--expected-process-creation-file-time`, `--expected-server-payload-sha256`, `--require-exit`, and optional `--exit-timeout-seconds` |
+| `host stop` | `--direct`, `--force`; strict owned-host stop additionally uses `--expected-process-id`, `--expected-process-creation-file-time`, `--expected-server-payload-sha256`, `--require-exit`, and optional `--exit-timeout-seconds` |
 
 Relay commands use `--state-dir` for the relay root, defaulting to the user-local `relay` directory rather than the
 ordinary target-host root. Installation needs one Windows UAC approval and verifies a live elevated VM-only worker
@@ -862,6 +862,9 @@ orchestration payload SHA-256, contract version, and the `processTest`
 capability used before VM submission. Unqualified `host stop` preserves the existing
 behavior. Automation that owns a private broker root can bind shutdown to that
 observed generation:
+
+If the run used a direct localhost broker, add `--direct` to both `host status` and `host stop`. They contact only
+the existing host in `--state-dir`, never start a host, and do not change app execution authority.
 
 ```powershell
 sprout-devtools host stop --state-dir <owned-root> `
