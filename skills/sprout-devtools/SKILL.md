@@ -192,6 +192,9 @@ For a private broker owned by the current run, capture its status PID,
 with all three expected values plus `--require-exit`. Trust only the returned
 generation-bound JSON receipt; never stop by state-root reuse, process name,
 or PID disappearance.
+If that run used a direct localhost broker, add `--direct` to both `host status` and `host stop`. This contacts only
+the existing host in the explicit `--state-dir`, bypasses relays, and never starts a host. It does not select local
+app execution or relax the strict stop identity and exit proof. Without it, relay routing stays unchanged.
 
 For a DevTools brick whose self-contained payload intentionally differs from a
 foreign resident target host, use
