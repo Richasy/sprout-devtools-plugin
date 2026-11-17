@@ -25,6 +25,15 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 
 ## Trusting a result
 
+- **DO** checkpoint a seeded role while stopped, upgrade its exact owned signed installation, and compare before
+  restarting. **DON'T** recreate a checkpoint after upgrade or treat unchanged file hashes as application-semantic
+  evidence. Declare optional sidecars explicitly; absence is part of the comparison. Never pass private source
+  paths or arguments through a public fixture. See `AppFixtureAppDataTests` and `AppFixturePrivateDataTests`.
+
+- **DO** collect intermittent test stalls through the optional external dump helper and inspect the captured stacks.
+  **DON'T** treat an elapsed-time dump as proof of a hang, or an instrumented rerun passing as a fix.
+  Require the original test deadline, generation-bound helper exit, and guest rollback evidence.
+
 - **DO** inspect `preparation.diagnostic` before attributing an experiment's `uiaUnavailable` to slow startup.
   Strict drive waits for a window before creating its ordinary UIA client; experiment preparation shares one readiness
   budget across window discovery and a timeout-bounded UIA client. A later successful drive is not proof that either
@@ -39,6 +48,10 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
 - **DON'T** report `recording.json.actualFps` as the app's present rate when the recorder reports backpressure drops;
   the H.264/readback worker is then the limiting pipeline. **DO** use `experiment --frame-timing` for metadata-only WGC
   compositor timestamps, and keep `record` for pixels/video evidence.
+- **DO** use `record --require-wgc` or `isolate --record --record-require-wgc` for presentation flicker.
+  **DON'T** use a PrintWindow recording to rule out a compositor-only transient: the forced repaint can hide it.
+- **DO** use `deploy --package-dir <stable-dir> --keep-open --drive-script <steps.json>` for automated resident-package
+  setup and programmatic resize. **DON'T** weaken attached inspection or inject host input to drive an existing window.
 - **DO** use the built-in experiment scroll preset instead of writing a one-off plan: `--scroll-mode page` measures a
   steady UIA scroll workload; `percent` deliberately stresses long normalized jumps similar to scrollbar movement.
 - **DO** read `tests[].assertions[]` and `artifacts[]` from `result.json`. **DON'T** parse stdout prose.
@@ -50,6 +63,10 @@ Terse DO / DON'T assertions from real use. Add one whenever a mistake costs real
   from the inventory order. Adapter inventory is not process attribution.
 
 ## Snapshots and layout
+
+- **DO** use an explicit `snapshot` with `scope:"current"` after finding the precise control when only its runtime
+  Name/HelpText is needed. **DON'T** export the whole window to read one unknown timestamp. Keep automatic capture
+  disabled, use the artifact's target UTC/local offset, and find again after a role boundary.
 
 - **DON'T** divide `bounds` or `desiredSize` by `dpiScale`. They are **already epx**; `dpiScale` is an independent
   fact reported for when you need to derive a physical value. Dividing invents layout bugs that do not exist.

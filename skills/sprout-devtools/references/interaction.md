@@ -20,6 +20,12 @@ and cannot be combined with app, package, or cleanup options. A hover explicitly
 pointer; verify that authority before using it on a shared desktop. The process creation time binds the entire
 inspection and capture, including reconnecting across the target's popup windows.
 
+Find may reconnect to another visible window of the same held process, such as an editor beside its launcher.
+Each connection rechecks the process generation, image, window visibility and owning PID. A peer that disappears
+during connection is skipped; identity or ownership changes still fail. Hover additionally requires the selected
+window itself to be foreground, including after a peer switch. A different window of the same process is insufficient.
+This does not change the stable-main-window requirement of frame-timing experiments.
+
 For a tooltip, find its control, hover it, wait for its show delay, then assert the full help text and capture.
 If its normal auto-hide timer already elapsed, hover another control before re-entering the target. Use
 `capture --pid <pid> --list-windows --json` to select a specific tooltip HWND when several popups are open.
@@ -148,6 +154,14 @@ physical px or epx and emit a `window` assertion with DPI evidence) and `snapsho
 subtree as evidence). `snapshot` captures the drive root at that exact step and writes
 `uia-snapshot-step-<one-based-step>.json`; it remains available when `--no-capture` disables the automatic final
 screenshot/tree/snapshot bundle.
+For a privacy-scoped read, use `{"op":"snapshot","scope":"current"}` after `find`/`findWithin`. It captures only the
+found node (depth 0, maximum one node), never the window or a stale-target replacement. No find, stale/empty capture,
+revoked ownership, missing target-clock metadata, or an over-broad provider response fails closed. The ordinary
+`snapshot` and explicit `scope:"window"` remain window-root captures. No per-step depth/property expression is accepted.
+Current-scope artifacts retain schema `sprout.devtools.uiaSnapshot.v1` and normal SHA-256 binding, adding
+`scope:"current"`, target-side ISO-8601 `capturedUtc`, and target `localUtcOffsetMinutes`; the allowlisted Name,
+HelpText and pattern values are in `nodes[0]`. Use `--no-capture` (`isolate --drive-no-capture`) to suppress automatic
+window evidence; explicit current snapshots still execute. Find again after an app-fixture role/lifecycle boundary.
 For `drive-shell --script`, raise `--snapshot-depth` when relevant controls sit below the default depth of `8`; the
 bounded snapshot changes evidence only, never the full-tree `find` gate.
 
