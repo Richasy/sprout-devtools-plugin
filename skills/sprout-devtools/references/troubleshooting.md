@@ -19,7 +19,7 @@ A shell opened before the install will not see the shim. Open a new one.
 First identify which executable failed:
 
 - The installed `sprout-devtools` tool and the in-repository `Sprout.DevTools` host are framework-dependent and need a
-  **.NET 10** runtime. Check `dotnet --list-runtimes`. From source, run the host through the pinned runtime:
+  **.NET 11** runtime. Check `dotnet --list-runtimes`. From source, run the host through the pinned runtime:
   `dotnet run --project tools\Sprout.DevTools\Sprout.DevTools.csproj -- <verb>`. Do not make the built apphost the
   normal invocation.
 - A target produced by `sprout-devtools build` is RID-specific, but is self-contained only when its project declares
@@ -28,7 +28,7 @@ First identify which executable failed:
 - The self-contained DevTools publish delivered to Sandbox/Hyper-V, and a self-contained/AOT target app, may be
   launched directly without `DOTNET_ROOT`.
 
-If several .NET installations exist, point `DOTNET_ROOT` at the one carrying .NET 10.
+If several .NET installations exist, point `DOTNET_ROOT` at the one carrying .NET 11.
 
 When a new managed VM boots Windows but its target task exits before a process or channel appears, verify that the
 delivered DevTools directory includes the runtime, including `coreclr.dll`, `hostfxr.dll`, and `hostpolicy.dll`.

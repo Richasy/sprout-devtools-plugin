@@ -38,7 +38,7 @@ on an explicit VM or explicitly authorized current host. VM execution requires
 `--target vm` and `--target-tool-dir <self-contained-tools>`. Host execution
 requires both `--target host` and `--allow-host`.
 
-Optional options shared by both routes are `--filter`, `--timeout`,
+Optional options shared by both routes are `--filter`, `--timeout`, `--hang-dump-after-seconds`,
 `--artifacts`, and `--json`. VM-only options are `--queue-wait-seconds`,
 `--pool`, `--target-state-dir`, `--pool-state-dir`,
 `--existing-vm-profile`, and `--target-tool-dir`; they are rejected with
@@ -49,6 +49,18 @@ positive executed and passed test count, zero adverse outcomes, exit zero, and
 held-process cleanup are required. VM execution additionally requires guest
 rollback. Stdout, stderr, TRX, and the published-payload manifest are
 hash-bound. Empty or all-skipped selections cannot pass.
+
+For an intermittent stall, `--hang-dump-after-seconds 30` captures a full dump
+from an independent helper if the owned test process still exists at that
+threshold. Zero (the default) disables capture; a positive threshold must be
+less than `--timeout`. Elapsed time alone does not prove a hang. The original
+test deadline remains armed, and test exit cancels and cleans the helper.
+The helper verifies the target's process creation time and locked executable
+hash before using the same retained handle to write the dump. Completed dump
+and helper identity/exit evidence are hash-bound artifacts. Dumps are published
+as `test-hang.dmp.gz` to stay within the guest collection bound; decompress them
+before debugging. Compression is cancelled when the test exits. Dumps contain
+process memory; keep them with the run's private diagnostic artifacts.
 `--target-state-dir` selects the localhost broker pipe, journal, and artifacts.
 `--pool-state-dir` independently selects an existing managed Hyper-V pool
 manifest root; omission preserves the prior behavior and reads the pool from
@@ -254,6 +266,13 @@ preserved verbatim: process counters are not a sum of window counters, and unkno
 No derived runtime aggregate is emitted. Collection overhead is outside the PDH/CPU phase window; a new prime follows
 each before-read so inspection latency does not contaminate that phase's scheduled samples. Partial read failures
 retain earlier receipts and a structured error; a killed worker still cannot supply an incomplete result.
+
+`process.managedMemory` separates non-collecting GC observations from process/driver memory: current estimated heap
+bytes, cumulative allocated bytes, generation collection counts and GC mode, plus heap/committed/fragmented bytes
+from the latest completed collection. No collection or working-set trim is requested. Those last-collection facts
+are not a current live-object census; do not subtract them from Private Bytes as exact native ownership. An absent
+group means an older target, not a zero-sized managed heap. Use a matching updated CLI for typed `inspect metrics`
+output; `experiment --runtime-metrics` retains the raw envelope.
 
 Before the first discarded PDH prime and warm-up sample, the command verifies the pinned process and main HWND, creates
 one attached UIA client/reconnecting root, and performs a read-only provider initialization. `experiment.json` records
@@ -490,6 +509,8 @@ Records bounded post-compositor H.264/MP4 evidence.
 | `--wait-ms <n>` | Bound main-window discovery. |
 | `--settle-ms <n>` | Delay before recording. |
 | `--allow-static` | Permit intentional non-uniform but visually static output. |
+| `--require-wgc` | Require WGC, bypass PrintWindow, and retain blank transients after first-frame readiness; fail if unavailable. |
+| `--max-width <even 2..8192>` | Cap output width without resizing the app or altering original source-size evidence. |
 | `--keep-open` | Leave an unpackaged app running. |
 | `--identity-name <name>` | Synthetic package identity name. |
 | `--publisher <dn>` | Synthetic package publisher distinguished name. |
@@ -640,7 +661,7 @@ loose package may explicitly retain the exact launched process with `--keep-open
 
 `--form auto|exe|msix|both`, `--from-source`, `--configuration`/`-c`, `--runtime`/`-r`, `--dotnet`,
 `--build-timeout-ms`, `--deploy-dir`, `--package-dir`, `--exe`, `--identity-name`, `--display-name`, `--publisher`,
-`--version`, `--synthetic-msix`, `--app-arg`, `--no-launch`, `--keep-open`, `--wait-ms`, `--settle-ms`,
+`--version`, `--synthetic-msix`, `--app-arg`, `--no-launch`, `--keep-open`, `--drive-script`, `--drive-snapshot-depth`, `--wait-ms`, `--settle-ms`,
 `--timeout-ms`, `--allow-package-update`.
 
 Direct signed `.msix` input preserves its baked identity and requires `--no-launch`. Existing same-name packages are
@@ -664,6 +685,15 @@ AUMID-launched process running and records its executable SHA-256; `--no-launch`
 exclusive. `--package-dir` and `--keep-open` are rejected for signed MSIX deployment. Omit `--form` for a real loose layout;
 `--form msix` requests the synthetic package route. See
 [`devtools-package-updates.md`](../../../../docs/guide/devtools-package-updates.md).
+
+`--drive-script` requires a loose-package `--package-dir --keep-open` launch. It runs non-synthetic UIA patterns,
+`resizeClient`, bounded waits, and snapshots on the exact generation owned by this deploy invocation. A supervised
+worker enforces a separate 60-second deadline; no process is handed off if the drive fails. Attached inspection stays
+read-only, and existing package data remains resident.
+`--drive-snapshot-depth <0..32>` bounds explicit resident snapshots; the default is 8 and requires a drive script.
+Add `--record-duration-ms <500..60000>` and optional `--record-fps <1..60>` to record the owned drive through strict WGC.
+The script starts only after the first valid frame is accepted, and video/drive assertions must both pass before handoff.
+`--record-max-width <even 2..8192>` caps resident video output without changing the target's dimensions.
 
 ### `debug <app|publishDir|project>`
 
@@ -691,7 +721,7 @@ fallback. See [the context guide](../../../../docs/guide/devtools-selftest-conte
 
 `--devtools`, `--devtools-exe`, `--exe`, `--demo-arg`, `--no-selftest`, `--portable-test`, `--filter`,
 `--contrast-theme`, `--record`, `--record-app-arg`,
-`--record-duration-ms`, `--record-fps`, `--record-wait-ms`, `--record-allow-static`, `--drive-script`,
+`--record-duration-ms`, `--record-fps`, `--record-max-width`, `--record-wait-ms`, `--record-allow-static`, `--record-require-wgc`, `--drive-script`,
 `--drive-app-arg`, `--private-input-manifest`, `--drive-packaged`,
 `--drive-preserve-app-data`, `--drive-wait-ms`,
 `--drive-find-timeout-ms`, `--drive-settle-ms`, `--drive-no-capture`, `--drive-require-cleanup`, `--drive-crash-metadata`,
@@ -728,11 +758,27 @@ the host-selected manifests.
 
 `--app-fixture <manifest.json>` declares **1..4 signed application roles** for one authenticated managed-VM
 drive session. Use `--backend vm --no-selftest --drive-no-capture --drive-script <steps>`; no legacy/Sandbox/host
-fallback, other launch/package mode, private-input manifest, or implicit settle delay. The manifest has
+fallback, other launch/package mode, or implicit settle delay. The manifest has
 `schema: "sprout.devtools.app-fixture.v1"`, `primary: "<role>"`, and `apps[]` entries with `role`, relative `msix`,
 relative `certificate`, exact `aumid`, optional `arguments`, and optional relative `upgradeMsix`. Roles are unique bounded lowercase names and must
 have different real package identities. Inputs and script are hash-bound into the authenticated plan before execution.
 Each lifecycle step accepts only `op` and `role`: `installApp`, `startApp`, `selectApp`, `stopApp`, `uninstallApp`, `upgradeApp`.
+For opaque existing-data fixtures, add `apps[].appDataFiles: [{inputId, relativePath}]` and
+`--private-input-manifest` with file records only: private `driveAppArguments` and `outputs` are rejected, not forwarded
+as public role arguments. Every source ID must be referenced. Optional `apps[].appDataCheckPaths` defaults to all
+seed paths; an explicit list must include every seed and may add named optional files. Per role: eight seeds,
+sixteen check paths, relative names at most 240 characters, 256 MiB per file / 512 MiB total per seed or checkpoint.
+Sources have the existing eight-file / 512 MiB total limit. Duplicate, traversal, reparse, and conflicting targets fail.
+Use `seedAppData` after owned installation and before the first start; use `checkpointAppData` while stopped before
+upgrade, then `expectAppDataUnchanged` after upgrade and before restart. These steps accept only `op` and `role`.
+They verify only the same authenticated user's exact installed role's `LocalState`, never the package layout or
+an arbitrary path. An existing family profile is rejected before installation, and seeding never overwrites data.
+Seed files must exist at checkpoint; optional paths bind present/absent state as well as size/SHA-256. A checkpoint
+blocks restart until comparison passes. Single-use seeding/checkpoint and exact process/registration checks prevent
+resetting the baseline after upgrade. `appFixture.<role>.appDataSeed`, `appDataCheckpoint`, `appDataUnchanged`,
+`appDataCleanup`, and `appFixture.privateInputCleanup` contain metadata only; no source paths or contents are exported.
+The source files remain caller-owned; guest payload deletion, host staging cleanup, and VM rollback remain required.
+This proves deployment preservation, not application semantics. It has no host or live-shell variant.
 Install the primary first; late secondary installation while the primary runs is supported. `startApp` selects the
 new owned generation, `selectApp` preserves other processes, and every lifecycle boundary clears the found element
 and releases held input. Use a new `find` before the next element action. Each role installs once and may start at
@@ -743,6 +789,12 @@ uninstall between versions. A new `startApp` binds the successor's image and pro
 hash-bound before execution; foreign or indeterminate ownership fails closed instead of deleting a guessed package.
 Native `closeWindow` / `waitForWindowState` bind the role generation's original main window, not a reconnected popup.
 Explicit `snapshot` works; recording and `findDesktop` / `snapshotDesktop` remain outside this narrow route.
+For unknown runtime values without a private window-tree export, find the exact control and use
+`{"op":"snapshot","scope":"current"}`. This captures only `nodes[0]` at depth 0, including Name/HelpText and bounded
+pattern values. It requires a current non-stale find, retains role/process checks, fails rather than falling back,
+and is unaffected by window snapshot depth. The hash-bound `uiaSnapshot` artifact adds `scope:"current"`,
+`capturedUtc` (target-side ISO-8601 UTC), and `localUtcOffsetMinutes` (target offset). Default or explicit `window`
+scope keeps the existing window-root snapshot. `--drive-no-capture` still suppresses automatic window evidence.
 Desktop steps fail preflight before guest launch or package preparation, regardless of an ambient guest capability.
 Role queries keep their owned-PID scope. Native IME uses existing guest-only key operations and the authorized
 `--input-language` transaction; it does not require extra Desktop UIA authority.
@@ -770,7 +822,8 @@ data, an unsupported OS, or a rejected Win32 operation errors explicitly; DevToo
 private theme APIs, or activation workarounds. Omitting the option preserves the existing light/dark/system path.
 
 `--private-input-manifest` accepts a caller-owned JSON file with up to eight guest-only files (256 MiB each,
-512 MiB total) and sixteen private drive arguments. Arguments can contain `{guest-file:<id>}` placeholders. Inputs
+512 MiB total) and sixteen private drive arguments for a single-app drive. The fixture route above instead requires
+files only and rejects arguments/outputs. Single-app arguments can contain `{guest-file:<id>}` placeholders. Inputs
 are delivered under opaque names outside the app/package payload, argument values are redacted from result metadata,
 and transient staging stays outside the artifact tree and is deleted after the isolated run. The manifest and source
 files remain caller-owned.
